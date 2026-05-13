@@ -1,0 +1,82 @@
+# Path note: the parent directory is named `fake` because that's the literal
+# default tenant ID Loki uses when auth_enabled=false. The ruler looks up
+# rules under <rules_directory>/<tenant_id>/, and our setup is single-tenant.
+# Don't rename `fake/` unless you also enable Loki multi-tenancy.
+groups:
+  - name: log-errors
+    rules:
+      - alert: ErrorLogsSpike
+        expr: |
+          sum by (container, host) (
+            rate({container=~".+"} |~ "(?i)\\berror\\b" [5m])
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error-log spike in {{ $labels.container }} on {{ $labels.host }}"
+          description: "More than 0.5 error-level log lines/sec for 2m in container '{{ $labels.container }}' on host '{{ $labels.host }}'."
+
+  - name: jvm-failure-signals
+    # Log-pattern alerts for JVM unrecoverable conditions. These catch the
+    # in-process OOM case where the container itself stays "up" but the JVM
+    # is wedged.
+    #
+    # IMPORTANT: patterns deliberately use the fully-qualified class name
+    # `java.lang.X` rather than the bare class name. Loki's own ruler logs
+    # contain the query text (which embeds the pattern) and alert names —
+    # matching `OutOfMemoryError` alone caused a feedback loop where the
+    # rule fired on Loki's own logs about the rule. Real JVM crashes always
+    # print `java.lang.OutOfMemoryError`, so this loses no real signal.
+    # See also Fix 2: Promtail drops the monitoring stack containers from
+    # the log scrape entirely.
+    rules:
+      - alert: JvmOutOfMemoryError
+        expr: |
+          sum by (container, host) (
+            count_over_time({container=~".+"} |~ `java\.lang\.OutOfMemoryError` [5m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM OutOfMemoryError in {{ $labels.container }}"
+          description: "java.lang.OutOfMemoryError observed in logs of '{{ $labels.container }}' on {{ $labels.host }}. JVM state is suspect even if the container is still running; restart and capture a heap dump."
+
+      - alert: JvmGCOverheadLimit
+        # The GC-overhead variant of OOM. Worth flagging on its own because
+        # the response is different — almost always a leak, not a peak.
+        # Full JVM line: `java.lang.OutOfMemoryError: GC overhead limit exceeded`.
+        expr: |
+          sum by (container, host) (
+            count_over_time({container=~".+"} |~ `java\.lang\.OutOfMemoryError: GC overhead limit exceeded` [5m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM GC overhead limit exceeded in {{ $labels.container }}"
+          description: "'{{ $labels.container }}' on {{ $labels.host }} is GC-thrashing. Imminent OOM almost certain. Investigate heap usage and likely leak."
+
+      - alert: JvmStackOverflowError
+        expr: |
+          sum by (container, host) (
+            count_over_time({container=~".+"} |~ `java\.lang\.StackOverflowError` [5m])
+          ) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM StackOverflowError in {{ $labels.container }}"
+          description: "StackOverflowError in '{{ $labels.container }}' on {{ $labels.host }}. Usually indicates unbounded recursion in code; occasionally legitimate for deep parsing tasks."
+
+      - alert: JvmFatalSignal
+        # Catches Hotspot fatal-error log preambles: '#  fatal error',
+        # '# A fatal error has been detected' etc. JVM crashes with a SIGSEGV
+        # / SIGBUS / etc. write these before exiting.
+        expr: |
+          sum by (container, host) (
+            count_over_time({container=~".+"} |~ "fatal error has been detected by the Java Runtime" [5m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM hotspot fatal error in {{ $labels.container }}"
+          description: "Hotspot crashed with a fatal error (SIGSEGV / native code bug / JVM bug). The hs_err_pid*.log file should be on the container's filesystem if mounted persistently."

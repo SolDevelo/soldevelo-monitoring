@@ -1,0 +1,49 @@
+groups:
+  - name: containers
+    rules:
+      - alert: ContainerNotSeen
+        expr: time() - container_last_seen{name!=""} > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} on {{ $labels.host }} not seen for 5m"
+          description: "cAdvisor hasn't reported '{{ $labels.name }}' on {{ $labels.host }} for over 5 minutes; container is likely stopped, restarting, or removed."
+
+      - alert: ContainerHighMemoryVsLimit
+        expr: |
+          container_memory_usage_bytes{name!=""}
+            / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} memory > 90% of its limit"
+          description: "'{{ $labels.name }}' on {{ $labels.host }} is using over 90% of its configured memory limit. Likely candidate for OOM kill."
+
+      - alert: ContainerOOMKilled
+        # Direct cAdvisor OOM-event counter. Known to silently miss fast
+        # restart cycles on cgroup v2 — pair with ContainerRestartLoop for
+        # robust coverage.
+        expr: increase(container_oom_events_total{name!=""}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container OOM-killed: {{ $labels.name }} on {{ $labels.host }}"
+          description: "Kernel OOM-killed a process in container '{{ $labels.name }}' on {{ $labels.host }}. Common causes: JVM heap exceeded the container memory limit; native allocation spike. Check the container's memory dashboard and recent logs for OutOfMemoryError."
+
+      - alert: ContainerRestartLoop
+        # Counts distinct container IDs per (name, host) seen in the last
+        # 10 minutes. Each Docker restart creates a new container ID, so
+        # >2 distinct IDs = 3+ container instances = restart loop. Catches
+        # OOM (when ContainerOOMKilled misses it), healthcheck failures,
+        # crash-on-startup, panic-on-connect — any cause of repeated restart.
+        expr: |
+          count by (name, host) (
+            count_over_time(container_start_time_seconds{name!=""}[10m])
+          ) > 2
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container restart loop: {{ $labels.name }} on {{ $labels.host }}"
+          description: "Container '{{ $labels.name }}' on {{ $labels.host }} has started 3+ times in the last 10 minutes. Check the container's recent logs and memory dashboard. For JVM containers: likely OOM (verify with HostOOMKill / ContainerOOMKilled correlation) or crash-on-startup."

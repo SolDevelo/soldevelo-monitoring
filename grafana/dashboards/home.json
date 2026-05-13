@@ -1,0 +1,218 @@
+{
+  "uid": "sdm-home",
+  "title": "SolDevelo Monitoring",
+  "tags": ["soldevelo-monitoring", "home"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 4 },
+      "transparent": true,
+      "options": {
+        "mode": "markdown",
+        "content": "# SolDevelo Monitoring\n\nOpinionated, OSS-based monitoring for SolDevelo projects. Use the dashboards on the right to navigate — start with **Active alerts** if you're chasing an incident, **Host overview** or **Containers** for capacity questions, **JVM application** for any Java service.\n\nMetric definitions and conventions: `docs/metrics.md`. Java onboarding: `docs/java-app-setup.md`."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Critical alerts firing",
+      "gridPos": { "x": 0, "y": 4, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"}) OR vector(0)",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Warning alerts firing",
+      "gridPos": { "x": 6, "y": 4, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"}) OR vector(0)",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Hosts monitored",
+      "gridPos": { "x": 12, "y": 4, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }
+      },
+      "targets": [
+        {
+          "expr": "count(count by (host) (up{job=~\"node\"} == 1)) OR vector(0)",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Java services emitting metrics",
+      "gridPos": { "x": 18, "y": 4, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }
+      },
+      "targets": [
+        {
+          "expr": "count(count by (service) (jvm_memory_used_bytes)) OR vector(0)",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Currently firing",
+      "description": "Live view of any firing alerts. Click Active alerts dashboard for the full table.",
+      "gridPos": { "x": 0, "y": 8, "w": 14, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "alertstate": true,
+              "instance": true,
+              "job": true,
+              "monitor": true,
+              "Value": true,
+              "container": true,
+              "name": true
+            },
+            "indexByName": {
+              "severity": 0,
+              "alertname": 1,
+              "host": 2
+            },
+            "renameByName": {
+              "alertname": "Alert",
+              "severity": "Severity",
+              "host": "Host"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Severity" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background", "mode": "basic" }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "critical": { "color": "red", "index": 0 } } },
+                  { "type": "value", "options": { "warning":  { "color": "yellow", "index": 1 } } },
+                  { "type": "value", "options": { "info":     { "color": "blue", "index": 2 } } }
+                ]
+              },
+              { "id": "custom.width", "value": 100 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "dashlist",
+      "title": "Dashboards",
+      "gridPos": { "x": 14, "y": 8, "w": 10, "h": 10 },
+      "options": {
+        "showStarred": false,
+        "showRecentlyViewed": true,
+        "showSearch": false,
+        "showHeadings": true,
+        "maxItems": 30,
+        "query": "",
+        "tags": ["soldevelo-monitoring"]
+      }
+    },
+    {
+      "id": 8,
+      "type": "text",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 3 },
+      "transparent": true,
+      "options": {
+        "mode": "markdown",
+        "content": "---\n\n*Package: soldevelo-monitoring · Internal SolDevelo tooling · Configs live in the package repo under `prometheus/`, `loki/`, `grafana/`*"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+
+  http_2xx_post:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+
+  icmp:
+    prober: icmp
+    timeout: 5s

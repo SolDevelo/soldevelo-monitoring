@@ -1,0 +1,16 @@
+# Caddy reverse proxy in front of Grafana. Auto-HTTPS based on site address:
+#   http://localhost            → plain HTTP, no TLS (safe default for local)
+#   localhost                   → Caddy's internal CA, self-signed TLS
+#   monitoring.example.com      → Let's Encrypt cert, auto-renewed
+#
+# The site address comes from ${MONITORING_SITE} (rendered from .env by
+# bin/render-configs.sh). Email is only used by Let's Encrypt.
+
+{
+    email ${LETSENCRYPT_EMAIL}
+}
+
+${MONITORING_SITE} {
+    encode gzip
+    reverse_proxy grafana:3000
+}

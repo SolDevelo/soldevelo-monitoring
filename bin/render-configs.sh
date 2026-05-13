@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Render *.template files in the repo by envsubst-ing values from .env (or $1).
+# Usage:  bin/render-configs.sh [path/to/.env]
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${1:-${REPO_ROOT}/.env}"
+
+if [[ ! -f "${ENV_FILE}" ]]; then
+  echo "ERROR: env file not found: ${ENV_FILE}" >&2
+  echo "Copy .env.example to .env and fill in values." >&2
+  exit 1
+fi
+
+if ! command -v envsubst >/dev/null 2>&1; then
+  echo "ERROR: envsubst not installed (package: gettext)" >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "${ENV_FILE}"
+set +a
+
+# Restrict envsubst to only vars defined in .env — avoids accidentally
+# expanding $PATH, $HOME etc. that appear inside templates.
+var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
+  | sed -E 's/=.*//' \
+  | sed 's/^/$/' \
+  | tr '\n' ' ')
+
+found_any=0
+while IFS= read -r -d '' template; do
+  output="${template%.template}"
+  envsubst "${var_list}" < "${template}" > "${output}"
+  echo "rendered: ${output#${REPO_ROOT}/}"
+  found_any=1
+done < <(find "${REPO_ROOT}" -type f -name '*.template' -print0)
+
+if [[ "${found_any}" -eq 0 ]]; then
+  echo "no *.template files found under ${REPO_ROOT}"
+fi

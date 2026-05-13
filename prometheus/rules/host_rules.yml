@@ -1,0 +1,52 @@
+groups:
+  - name: host
+    rules:
+      - alert: InstanceDown
+        expr: up{job="node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host {{ $labels.host }} is down"
+          description: "node-exporter on {{ $labels.host }} ({{ $labels.instance }}) has been unreachable for 1m."
+
+      - alert: HighCPU
+        expr: 100 - (avg by (host) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.host }}"
+          description: "CPU usage on {{ $labels.host }} is above 90% for 5m."
+
+      - alert: LowDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|fuse.lxcfs"}
+            / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk on {{ $labels.host }}"
+          description: "Free space on / is below 10% on {{ $labels.host }}."
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.host }}"
+          description: "Memory usage on {{ $labels.host }} is above 90% for 5m."
+
+      - alert: HostOOMKill
+        # Fires when the kernel OOM-killer kicks in on the host (any process,
+        # containerized or not). Counter source: /proc/vmstat oom_kill, via
+        # node-exporter's vmstat collector.
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kernel OOM-kill event on {{ $labels.host }}"
+          description: "The kernel killed at least one process on {{ $labels.host }} due to memory pressure. Combined with the Containers dashboard, find which container hosted the killed process; ContainerOOMKilled fires alongside this when the victim was inside a container."

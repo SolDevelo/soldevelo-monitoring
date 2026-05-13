@@ -1,0 +1,18 @@
+# Secrets / environment
+.env
+
+# Rendered configs (output of bin/render-configs.sh from *.template files)
+/prometheus/prometheus.yml
+/prometheus/prometheus-meta.yml
+/alertmanager/alertmanager.yml
+/agents/promtail/promtail-config.yaml
+/caddy/Caddyfile
+
+# Per-deployment Java target lists for Prometheus file_sd (committed per
+# project as part of the overlay, not in the base package).
+/prometheus/targets/java/*.json
+
+# Local editor / OS junk
+.DS_Store
+.idea/
+.vscode/

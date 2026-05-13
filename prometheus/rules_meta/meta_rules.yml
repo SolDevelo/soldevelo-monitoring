@@ -1,0 +1,40 @@
+groups:
+  - name: meta
+    rules:
+      - alert: MonitorDiskLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|fuse.lxcfs"}
+            / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Monitoring host disk usage is high"
+          description: "Disk usage on the monitoring host is above 85%. Prometheus/Loki will start dropping data."
+
+      - alert: PrometheusUnreachable
+        expr: up{job="meta-prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus unreachable from prometheus-meta"
+          description: "The main Prometheus instance is down or unreachable."
+
+      - alert: LokiUnreachable
+        expr: up{job="meta-loki"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Loki unreachable"
+          description: "Loki is down or unreachable; logs are not being ingested."
+
+      - alert: AlertmanagerUnreachable
+        expr: up{job="meta-alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager unreachable"
+          description: "Alertmanager is down — alerts cannot be delivered."

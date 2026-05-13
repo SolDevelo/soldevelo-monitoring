@@ -1,0 +1,66 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "${MONITORING_NAME}"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+      - targets:
+          - "${TARGET_HOST}:${TARGET_NODE_EXPORTER_PORT}"
+        labels:
+          host: "${TARGET_NAME}"
+
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - "${TARGET_HOST}:${TARGET_CADVISOR_PORT}"
+        labels:
+          host: "${TARGET_NAME}"
+
+  - job_name: java
+    # Targets come from JSON files in prometheus/targets/java/*.json.
+    # See docs/java-app-setup.md for the file format. Prometheus hot-reloads
+    # changes within refresh_interval — no restart needed to add/remove apps.
+    metrics_path: /actuator/prometheus
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/java/*.json
+        refresh_interval: 30s
+    relabel_configs:
+      # Allow per-target override of metrics_path via a label of the same
+      # name in the JSON — useful for apps that put actuator on a custom path.
+      - source_labels: [metrics_path]
+        regex: (.+)
+        target_label: __metrics_path__
+      # Drop the helper label from the final metric set so it doesn't pollute
+      # series cardinality.
+      - regex: metrics_path
+        action: labeldrop
+
+  - job_name: blackbox_http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ${BLACKBOX_PROBE_TARGETS}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

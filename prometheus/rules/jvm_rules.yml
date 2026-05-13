@@ -1,0 +1,65 @@
+groups:
+  - name: jvm
+    rules:
+      - alert: JvmHeapPressure
+        # Sustained heap pressure over 85% — the leading indicator for OOM.
+        # In a healthy app heap oscillates with GC; sitting at >85% for 10m
+        # means the GC can't free enough — almost always a leak or undersize.
+        expr: |
+          sum by (service, host) (jvm_memory_used_bytes{area="heap"})
+            / sum by (service, host) (jvm_memory_max_bytes{area="heap"} > 0) > 0.85
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM heap pressure: {{ $labels.service }} > 85% for 10m"
+          description: "Heap on '{{ $labels.service }}' ({{ $labels.host }}) sustained above 85%. Imminent OOM risk. Capture a heap dump (jmap / -XX:+HeapDumpOnOutOfMemoryError) and inspect top retainers."
+
+      - alert: JvmGCThrashing
+        # >25% of wall-clock time spent in GC. The classic 'about to die'
+        # signal — typically precedes OOM by minutes.
+        expr: |
+          sum by (service, host) (rate(jvm_gc_pause_seconds_sum[5m])) > 0.25
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM GC thrashing: {{ $labels.service }} > 25% time in GC"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} is spending more than 25% of wall-clock time in GC for 5m. The JVM is fighting a losing battle; OOM very likely within minutes. Restart and capture a heap dump for forensics."
+
+      - alert: JvmMetaspacePressure
+        # Metaspace OOM is rarer but real — apps that load many classes
+        # (dynamic proxies, code generation, bytecode manipulation) can
+        # exhaust Metaspace without ever filling heap.
+        expr: |
+          sum by (service, host) (jvm_memory_used_bytes{area="nonheap",id=~".*[Mm]etaspace.*"})
+            / sum by (service, host) (jvm_memory_max_bytes{area="nonheap",id=~".*[Mm]etaspace.*"} > 0) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM Metaspace pressure: {{ $labels.service }} > 90%"
+          description: "Metaspace usage on '{{ $labels.service }}' ({{ $labels.host }}) over 90% for 10m. Likely cause: classloader leak (e.g. repeated redeployment without restart, dynamic proxies, code generation). Increase -XX:MaxMetaspaceSize or investigate classloader retention."
+
+      - alert: JvmThreadGrowth
+        # Threads should reach a stable level after warmup. Sustained growth
+        # is usually an unbounded thread pool / thread leak (e.g. creating
+        # new Executors per request, untracked daemon threads).
+        expr: |
+          (jvm_threads_live_threads - jvm_threads_live_threads offset 1h) > 50
+            and jvm_threads_live_threads > 100
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM thread count growing: {{ $labels.service }} +50 over 1h"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} has grown its thread count by more than 50 over the last hour, and is now above 100 live threads. Common cause: thread leak (unbounded executor, missed shutdown). Capture a thread dump (jstack)."
+
+      - alert: JvmScrapeDown
+        expr: up{job="java"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM scrape failing: {{ $labels.service }} unreachable"
+          description: "Prometheus cannot scrape '{{ $labels.instance }}' (service={{ $labels.service }}) for 2m. Either the app is down, the actuator endpoint is misconfigured, or the JVM is blocked. If the container is up but this is firing, suspect a deadlock or accept-thread starvation."
