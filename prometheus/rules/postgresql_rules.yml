@@ -1,0 +1,48 @@
+groups:
+  - name: postgresql
+    rules:
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL down on {{ $labels.host }}"
+          description: "PostgreSQL has been unreachable for 2 minutes. Every service that depends on this database is degraded or broken."
+
+      - alert: PostgreSQLTooManyConnections
+        # >85% of max_connections used, sustained. Sizing issue or connection
+        # leak in one of the client apps.
+        expr: |
+          sum by (host) (pg_stat_database_numbackends)
+            / max by (host) (pg_settings_max_connections) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection utilization > 85% on {{ $labels.host }}"
+          description: "PostgreSQL on {{ $labels.host }} has been at >85% of max_connections for 10m. Either raise max_connections (with careful memory review), tune app-side connection pool sizes, or hunt a connection leak."
+
+      - alert: PostgreSQLLowCacheHitRatio
+        # Sustained cache miss rate. Below 90% is a signal the working set no
+        # longer fits in shared_buffers — either grow buffers or add indexes.
+        expr: |
+          sum by (host) (rate(pg_stat_database_blks_hit[10m]))
+            / (sum by (host) (rate(pg_stat_database_blks_hit[10m])) + sum by (host) (rate(pg_stat_database_blks_read[10m]))) < 0.9
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL cache hit ratio < 90% on {{ $labels.host }}"
+          description: "Sustained cache hit ratio below 90%. Either working set has outgrown shared_buffers, or a query is doing full scans that would benefit from indexes."
+
+      - alert: PostgreSQLDeadlocks
+        # Any deadlock rate above zero for a sustained period is worth
+        # attention — real deadlocks usually indicate a lock-ordering bug.
+        expr: rate(pg_stat_database_deadlocks[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL deadlocks on {{ $labels.host }} database '{{ $labels.datname }}'"
+          description: "Deadlock detected on '{{ $labels.datname }}'. Occasional deadlocks under load are normal; sustained rate usually means a lock-ordering issue in application code."

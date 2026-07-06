@@ -39,7 +39,7 @@ services:
     image: grafana/promtail:${PROMTAIL_VERSION}
     restart: unless-stopped
     volumes:
-      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro,z
       - /var/log:/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro

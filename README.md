@@ -6,7 +6,7 @@ dashboards-as-code, pre-baked alerts wired to Slack, and a documented metric
 catalog so the same names mean the same things across projects. Deployable on
 any Linux host with Docker.
 
-**Version:** `0.1.0` — first release. See [`CHANGELOG.md`](CHANGELOG.md).
+**Version:** `0.2.0`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in the box
 
@@ -39,10 +39,11 @@ any Linux host with Docker.
 - **prometheus/**, **loki/**, **alertmanager/**, **blackbox/**, **grafana/** —
   configs (templates rendered from `.env` plus committed rule files).
 - **bin/render-configs.sh** — envsubst `*.template` files using `.env` values.
-- **docs/** — `metrics.md` (catalog and conventions), `java-app-setup.md`
-  (Spring Boot onboarding walkthrough).
+- **docs/** — `metrics.md` (catalog and conventions), `java-app-setup.md`,
+  `python-app-setup.md`, `business-metrics.md`, `rabbitmq-setup.md`,
+  `postgresql-setup.md`.
 
-### Dashboards (six, all provisioned-as-code)
+### Dashboards (eight, all provisioned-as-code)
 
 - **SolDevelo Monitoring** (home) — alert counts, dashboard list, quick links.
 - **Host overview** — CPU, memory, disk, per-NIC network, load.
@@ -50,8 +51,14 @@ any Linux host with Docker.
   totals, and a live log stream filtered by host + container.
 - **HTTP probes** — Blackbox probe status, latency, SSL cert days remaining.
 - **JVM application** — Spring Boot / Micrometer metrics: heap %, GC overhead,
-  pauses, per-pool memory, thread states, process CPU. Multi-service via
-  variable picker.
+  pauses, per-pool memory, thread states, process CPU, logs for the service's
+  container. Multi-service via variable picker.
+- **Python application** — process memory / CPU / FDs, GC, optional HTTP
+  RED, business-metrics section, logs.
+- **RabbitMQ** — node health, per-queue depth, publish/deliver rates,
+  consumers, unacked messages, broker memory / disk.
+- **PostgreSQL** — up/down, connection utilization, cache hit ratio,
+  commit/rollback rate, deadlocks, DB size, tuple ops.
 - **Active alerts** — table of currently firing and pending alerts, severity
   colour-coded, with stat counts up top.
 
@@ -64,6 +71,10 @@ any Linux host with Docker.
 - **HTTP probes**: `ProbeFailing`, `ProbeSlow`, `SSLCertExpiringSoon`.
 - **JVM**: `JvmHeapPressure`, `JvmGCThrashing`, `JvmMetaspacePressure`,
   `JvmThreadGrowth`, `JvmScrapeDown`.
+- **RabbitMQ**: `RabbitMQDown`, `RabbitMQNoConsumers`,
+  `RabbitMQQueueBacklog`, `RabbitMQDiskLow`.
+- **PostgreSQL**: `PostgreSQLDown`, `PostgreSQLTooManyConnections`,
+  `PostgreSQLLowCacheHitRatio`, `PostgreSQLDeadlocks`.
 - **Logs**: `ErrorLogsSpike`, `JvmOutOfMemoryError`, `JvmGCOverheadLimit`,
   `JvmStackOverflowError`, `JvmFatalSignal`.
 - **Monitor self-health**: `MonitorDiskLow`, `PrometheusUnreachable`,
@@ -71,7 +82,13 @@ any Linux host with Docker.
 
 ## Prerequisites
 
-- Linux host with Docker 24+ and Docker Compose v2.
+- Linux host with Docker 24+ and **Docker Compose v2** (the Go plugin —
+  invoked as `docker compose`, with a space). The legacy v1 Python tool
+  (`docker-compose` with a hyphen) does not accept this package's compose
+  files and is EOL since 2023. Install with
+  `sudo apt-get install docker-compose-plugin` (Debian/Ubuntu) or
+  `sudo dnf install docker-compose-plugin` (Amazon Linux / Fedora /
+  RHEL-family).
 - `gettext` (provides `envsubst`) for the render script.
 - Network: target host must reach monitoring host on **3100** (Loki push) and
   the monitoring host must reach each target on **9100** (node-exporter),

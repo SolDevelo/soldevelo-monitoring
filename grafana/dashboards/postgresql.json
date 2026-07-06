@@ -1,0 +1,234 @@
+{
+  "uid": "sdm-postgresql",
+  "title": "PostgreSQL",
+  "tags": ["soldevelo-monitoring", "postgresql", "components"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "time": { "from": "now-3h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(pg_up, host)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "datname",
+        "label": "Database",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(pg_stat_database_numbackends{host=\"$host\"}, datname)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "PostgreSQL up",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" } }, "type": "value" },
+            { "options": { "1": { "text": "UP",   "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "targets": [
+        { "expr": "pg_up{host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active connections",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_numbackends{host=\"$host\",datname=~\"$datname\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Connection utilization",
+      "description": "current / max_connections. >80% for sustained periods = pool sizing or leak.",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "red", "value": 0.85 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_numbackends{host=\"$host\"}) / max(pg_settings_max_connections{host=\"$host\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Cache hit ratio",
+      "description": "block cache hits / (hits + reads-from-disk). <95% sustained = likely need to increase shared_buffers or add indexes.",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.9 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_blks_hit{host=\"$host\",datname=~\"$datname\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{host=\"$host\",datname=~\"$datname\"}[5m])) + sum(rate(pg_stat_database_blks_read{host=\"$host\",datname=~\"$datname\"}[5m])))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Connections over time",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "pg_stat_database_numbackends{host=\"$host\",datname=~\"$datname\"}",
+          "legendFormat": "{{datname}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Transaction rate (commit vs rollback)",
+      "description": "Elevated rollback rate can signal application errors, deadlocks, or lock contention.",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_commit{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} commit",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_rollback{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} rollback",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Deadlocks + conflicts",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_deadlocks{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} deadlocks",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_conflicts{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} conflicts",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Database size",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "pg_database_size_bytes{host=\"$host\",datname=~\"$datname\"}",
+          "legendFormat": "{{datname}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Tuple operations (rate)",
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_fetched{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} fetched",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_inserted{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} inserted",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_updated{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} updated",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_deleted{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "legendFormat": "{{datname}} deleted",
+          "refId": "D"
+        }
+      ]
+    }
+  ]
+}

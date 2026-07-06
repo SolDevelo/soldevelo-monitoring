@@ -5,9 +5,11 @@ services:
     image: prom/prometheus:${PROMETHEUS_VERSION}
     restart: unless-stopped
     volumes:
-      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../prometheus/rules:/etc/prometheus/rules:ro
-      - ../prometheus/targets:/etc/prometheus/targets:ro
+      # `:z` relabels bind-mounted config for SELinux-enforcing hosts
+      # (Amazon Linux, RHEL, Fedora). No-op on Ubuntu/Debian.
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+      - ../prometheus/rules:/etc/prometheus/rules:ro,z
+      - ../prometheus/targets:/etc/prometheus/targets:ro,z
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -25,8 +27,8 @@ services:
     image: prom/prometheus:${PROMETHEUS_VERSION}
     restart: unless-stopped
     volumes:
-      - ../prometheus/prometheus-meta.yml:/etc/prometheus/prometheus.yml:ro
-      - ../prometheus/rules_meta:/etc/prometheus/rules:ro
+      - ../prometheus/prometheus-meta.yml:/etc/prometheus/prometheus.yml:ro,z
+      - ../prometheus/rules_meta:/etc/prometheus/rules:ro,z
       - prometheus-meta-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -42,8 +44,8 @@ services:
     image: grafana/loki:${LOKI_VERSION}
     restart: unless-stopped
     volumes:
-      - ../loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
-      - ../loki/rules:/etc/loki/rules:ro
+      - ../loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro,z
+      - ../loki/rules:/etc/loki/rules:ro,z
       - loki-data:/loki
     command: -config.file=/etc/loki/loki-config.yaml
     ports:
@@ -53,7 +55,7 @@ services:
     image: prom/alertmanager:${ALERTMANAGER_VERSION}
     restart: unless-stopped
     volumes:
-      - ../alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro,z
       - alertmanager-data:/alertmanager
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
@@ -65,7 +67,7 @@ services:
     image: prom/blackbox-exporter:${BLACKBOX_VERSION}
     restart: unless-stopped
     volumes:
-      - ../blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+      - ../blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro,z
     command:
       - "--config.file=/etc/blackbox/blackbox.yml"
     ports:
@@ -85,8 +87,8 @@ services:
       GF_DEFAULT_INSTANCE_NAME: "SolDevelo Monitoring"
       GF_USERS_DEFAULT_HOME_DASHBOARD_UID: sdm-home
     volumes:
-      - ../grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro,z
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro,z
       - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"
@@ -104,7 +106,7 @@ services:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
     volumes:
-      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro,z
       - caddy-data:/data
       - caddy-config:/config
     depends_on:

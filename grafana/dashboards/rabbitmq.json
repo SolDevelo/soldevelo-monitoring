@@ -1,0 +1,192 @@
+{
+  "uid": "sdm-rabbitmq",
+  "title": "RabbitMQ",
+  "tags": ["soldevelo-monitoring", "rabbitmq", "components"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "time": { "from": "now-3h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(rabbitmq_identity_info, host)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "queue",
+        "label": "Queue",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(rabbitmq_queue_messages{host=\"$host\"}, queue)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Node up",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" } }, "type": "value" },
+            { "options": { "1": { "text": "UP",   "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",   "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "targets": [
+        { "expr": "rabbitmq_identity_info{host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total messages",
+      "description": "Sum across all queues on this host.",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "sum(rabbitmq_queue_messages{host=\"$host\"})", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active connections",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "rabbitmq_connections{host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Consumers (total across queues)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "sum(rabbitmq_queue_consumers{host=\"$host\"})", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Messages per queue",
+      "description": "Sustained upward drift = producer outpacing consumers. Sudden spike = burst input.",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_messages{host=\"$host\",queue=~\"$queue\"}",
+          "legendFormat": "{{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Publish vs delivery rate (msgs/sec)",
+      "description": "Publish rate > delivery rate over sustained periods → queue depth grows → eventual backlog.",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_published_total{host=\"$host\",queue=~\"$queue\"}[5m]))",
+          "legendFormat": "{{queue}} publish",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_delivered_total{host=\"$host\",queue=~\"$queue\"}[5m]))",
+          "legendFormat": "{{queue}} deliver",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Consumers per queue",
+      "description": "A queue with messages and zero consumers is stuck. See RabbitMQNoConsumers alert.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_consumers{host=\"$host\",queue=~\"$queue\"}",
+          "legendFormat": "{{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Unacked messages",
+      "description": "Messages delivered to a consumer but not yet acknowledged. Rising = consumer processing slowly or dying mid-work.",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_messages_unacked{host=\"$host\",queue=~\"$queue\"}",
+          "legendFormat": "{{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "RabbitMQ process memory",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "rabbitmq_process_resident_memory_bytes{host=\"$host\"}",
+          "legendFormat": "resident",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Disk space available",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "rabbitmq_disk_space_available_bytes{host=\"$host\"}",
+          "legendFormat": "free",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

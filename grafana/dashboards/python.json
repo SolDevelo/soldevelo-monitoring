@@ -1,0 +1,232 @@
+{
+  "uid": "sdm-python",
+  "title": "Python application",
+  "tags": ["soldevelo-monitoring", "python"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "time": { "from": "now-3h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(process_resident_memory_bytes, service)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "container",
+        "label": "Container(s) for logs",
+        "description": "Containers whose name matches the selected service. Adjust if your naming differs.",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(container_last_seen{name=~\".*$service.*\"}, name)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*$service.*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Resident memory",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "process_resident_memory_bytes{service=\"$service\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU (last 5m)",
+      "description": "Cores used by the process, averaged over the last 5 minutes. 1.0 = one full core.",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "rate(process_cpu_seconds_total{service=\"$service\"}[5m])", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Open FDs",
+      "description": "Open file descriptors. Compare with process_max_fds — steady growth is usually a leak (unclosed files/sockets).",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "process_open_fds{service=\"$service\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "FD usage (%)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.75 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "process_open_fds{service=\"$service\"} / process_max_fds{service=\"$service\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Memory over time",
+      "description": "Resident (RSS, filled) vs virtual (line). Steady upward creep in RSS over hours is the classic leak signature — same shape as JVM heap leaks.",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "drawStyle": "line", "fillOpacity": 30, "lineWidth": 1 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{service=\"$service\"}",
+          "legendFormat": "resident (RSS)",
+          "refId": "A"
+        },
+        {
+          "expr": "process_virtual_memory_bytes{service=\"$service\"}",
+          "legendFormat": "virtual",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "CPU over time",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{service=\"$service\"}[5m])",
+          "legendFormat": "cores",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "HTTP request rate (if instrumented)",
+      "description": "Requires HTTP instrumentation (prometheus_flask_exporter, prometheus-fastapi-instrumentator, django-prometheus, etc.). Shows 'No data' if not wired up.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (status, method) (rate(http_requests_total{service=\"$service\"}[5m]))",
+          "legendFormat": "{{method}} {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "HTTP request duration (p50 / p95 / p99, if instrumented)",
+      "description": "Requires histogram-shaped HTTP instrumentation. Shows 'No data' if not wired up.",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Python GC collections",
+      "description": "Cumulative GC collections per generation. Very high generation-2 rates can indicate memory pressure, but Python GC is generally less of a hotspot than JVM GC.",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(python_gc_collections_total{service=\"$service\"}[5m])",
+          "legendFormat": "gen {{generation}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Business metrics for $service",
+      "description": "Auto-picks any counter/gauge whose name starts with the service slug (e.g. ${service}_pages_scanned_total). See docs/business-metrics.md for the convention.",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate({__name__=~\"^${service}_.*_total\", service=\"$service\"}[5m])",
+          "legendFormat": "{{__name__}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "logs",
+      "title": "Logs (from $container)",
+      "description": "Loki logs from containers whose name contains the selected service.",
+      "gridPos": { "x": 0, "y": 26, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": { "showTime": true, "wrapLogMessage": false, "dedupStrategy": "none" },
+      "targets": [
+        {
+          "expr": "{container=~\"$container\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

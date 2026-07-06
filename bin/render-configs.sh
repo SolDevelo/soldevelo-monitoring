@@ -3,6 +3,12 @@
 # Usage:  bin/render-configs.sh [path/to/.env]
 set -euo pipefail
 
+# Force umask 022 so rendered files are 644 (world-readable). Without this,
+# hardened distros with umask 0027 (e.g. CIS-benchmarked Ubuntu/RHEL) produce
+# mode-640 files that container processes — running as `nobody` (uid 65534) or
+# similar non-host-group users — cannot read.
+umask 022
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${1:-${REPO_ROOT}/.env}"
 
@@ -40,3 +46,21 @@ done < <(find "${REPO_ROOT}" -type f -name '*.template' -print0)
 if [[ "${found_any}" -eq 0 ]]; then
   echo "no *.template files found under ${REPO_ROOT}"
 fi
+
+# Ensure config directories that get bind-mounted into containers are
+# traversable and readable by container processes. Idempotent; fixes the
+# common case where git clone under a restrictive umask leaves dirs at 750
+# and files at 640, which containers running as non-host-group users
+# (nobody / 65534, grafana / 472, etc.) cannot read.
+config_dirs=(
+  "${REPO_ROOT}/prometheus"
+  "${REPO_ROOT}/loki"
+  "${REPO_ROOT}/alertmanager"
+  "${REPO_ROOT}/blackbox"
+  "${REPO_ROOT}/grafana"
+  "${REPO_ROOT}/caddy"
+  "${REPO_ROOT}/agents/promtail"
+)
+for d in "${config_dirs[@]}"; do
+  [[ -d "${d}" ]] && chmod -R a+rX "${d}"
+done

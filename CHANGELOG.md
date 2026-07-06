@@ -6,6 +6,90 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-11
+
+First feedback-driven release, informed by real production use of `0.1.x`
+against an internal SolDevelo tool. The package caught a real memory leak
+(which was fixed), and running with real workloads surfaced concrete
+usability gaps and new coverage needs. This release addresses them.
+
+### Added
+
+- **Python application dashboard + setup guide.** New `python` scrape job
+  (file_sd via `prometheus/targets/python/*.json`), dashboard
+  (`grafana/dashboards/python.json`) covering process memory / CPU / FDs /
+  GC + optional HTTP RED panels + business-metrics section + logs. Full
+  onboarding walkthrough in `docs/python-app-setup.md` including framework
+  instrumentors (Flask / FastAPI / Django), multiproc-mode gotcha, and
+  target-file examples.
+- **RabbitMQ component** — new `rabbitmq` scrape job (file_sd via
+  `prometheus/targets/rabbitmq/*.json`), dashboard (`rabbitmq.json`),
+  alert rules (`rabbitmq_rules.yml`: `RabbitMQDown`, `RabbitMQNoConsumers`,
+  `RabbitMQQueueBacklog`, `RabbitMQDiskLow`). Setup guide in
+  `docs/rabbitmq-setup.md` covers the RabbitMQ 3.8+ built-in Prometheus
+  plugin (no sidecar exporter needed).
+- **PostgreSQL component** — new `postgresql` scrape job (file_sd),
+  dashboard, alert rules (`postgresql_rules.yml`: `PostgreSQLDown`,
+  `PostgreSQLTooManyConnections`, `PostgreSQLLowCacheHitRatio`,
+  `PostgreSQLDeadlocks`). Setup guide in `docs/postgresql-setup.md` covers
+  `postgres_exporter` deployment with `pg_monitor` role.
+- **Logs panel on JVM Application dashboard.** New container-picker
+  template variable that lists containers whose name matches the selected
+  service. Kills the "keep switching between Containers and JVM dashboards"
+  papercut that came up in first-project use.
+- **Business-metrics convention doc** (`docs/business-metrics.md`) — naming
+  rules, required labels, per-language exposure examples (Micrometer +
+  prometheus_client), where they live per-project vs in the base package,
+  and dashboard integration. Fills the last of the five deliverables named
+  in `IDEAS.md`.
+
+### Changed
+
+- **`ContainerHighMemoryVsLimit` alarm — `for:` extended from 5m to 15m.**
+  Was flapping when memory oscillated around the 90% threshold — firing,
+  resolving, and re-firing every ~10 min. Longer window means the alarm
+  only fires on sustained pressure, not on brief crossings. Fix per the
+  "flapping is a rule-tuning problem, not an alerting-system problem"
+  principle — no exotic backoff logic needed.
+
+### Package structure
+
+- Component pattern established: each stack component (RabbitMQ, PostgreSQL;
+  future: Redis, Nginx, Kafka, etc.) contributes a file_sd targets dir, a
+  scrape job in `prometheus.yml.template`, a dashboard, a rules file, and a
+  setup doc. Consistent structure makes adding the next component a
+  copy-paste operation rather than bespoke design.
+
+## [0.1.1] — 2026-05-14
+
+Post-`0.1.0`-first-deployment compatibility fixes — surfaced by deploying
+the package to a real Ubuntu 22.04 EC2 and informed by the diagnostic
+ladder that became part of the package itself.
+
+### Fixed
+
+- **Restrictive-umask compatibility** (e.g. CIS-benchmarked Ubuntu / RHEL
+  with `umask 027`). `bin/render-configs.sh` now forces `umask 022` at the
+  start (so rendered files are 644) and runs `chmod -R a+rX` on config
+  directories at the end (so directories created by `git clone` under the
+  restrictive umask become 755 instead of 750). Container processes running
+  as `nobody` (uid 65534) or `grafana` (uid 472) can then read the
+  bind-mounted configs, which they couldn't with the previous 640 / 750
+  modes. Idempotent on every render.
+- **SELinux compatibility** on Amazon Linux 2023 / RHEL / Fedora hosts. All
+  bind-mounted config files in `stack/docker-compose.yml` and
+  `agents/docker-compose.yml` now use `:ro,z`, which tells Docker to relabel
+  the file to the shared container context. Without this, SELinux-enforcing
+  hosts deny container processes access to bind-mounted configs with a
+  generic `permission denied` even though Linux file permissions look
+  correct. No-op on Ubuntu/Debian (no SELinux), required on RHEL-family.
+
+### Docs
+
+- README prerequisites clarified that Docker Compose v2 (the `docker compose`
+  Go plugin) is required, not the legacy v1 `docker-compose` Python tool
+  (EOL 2023). Includes install commands for apt and dnf families.
+
 ## [0.1.0] — 2026-05-13
 
 First release. Internal SolDevelo use; pre-public.
@@ -126,5 +210,7 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/soldevelo/soldevelo-monitoring/releases/tag/v0.1.0

@@ -51,6 +51,38 @@ scrape_configs:
       - regex: metrics_path
         action: labeldrop
 
+  - job_name: python
+    # Targets come from JSON files in prometheus/targets/python/*.json.
+    # See docs/python-app-setup.md for the file format.
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/python/*.json
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [metrics_path]
+        regex: (.+)
+        target_label: __metrics_path__
+      - regex: metrics_path
+        action: labeldrop
+
+  - job_name: rabbitmq
+    # RabbitMQ Prometheus plugin (3.8+ built-in on :15692) or
+    # rabbitmq_exporter sidecar. See docs/rabbitmq-setup.md.
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/rabbitmq/*.json
+        refresh_interval: 30s
+
+  - job_name: postgresql
+    # postgres_exporter sidecar. See docs/postgresql-setup.md.
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/postgresql/*.json
+        refresh_interval: 30s
+
   - job_name: blackbox_http
     metrics_path: /probe
     params:

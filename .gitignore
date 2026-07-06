@@ -8,9 +8,12 @@
 /agents/promtail/promtail-config.yaml
 /caddy/Caddyfile
 
-# Per-deployment Java target lists for Prometheus file_sd (committed per
-# project as part of the overlay, not in the base package).
+# Per-deployment target lists for Prometheus file_sd (committed per project
+# as part of the overlay, not in the base package).
 /prometheus/targets/java/*.json
+/prometheus/targets/python/*.json
+/prometheus/targets/rabbitmq/*.json
+/prometheus/targets/postgresql/*.json
 
 # Local editor / OS junk
 .DS_Store

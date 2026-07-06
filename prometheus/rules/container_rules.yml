@@ -11,15 +11,18 @@ groups:
           description: "cAdvisor hasn't reported '{{ $labels.name }}' on {{ $labels.host }} for over 5 minutes; container is likely stopped, restarting, or removed."
 
       - alert: ContainerHighMemoryVsLimit
+        # for: 15m (not 5m) prevents flapping when memory oscillates around
+        # the threshold — the alert only fires if usage stays above 90% for
+        # a sustained 15-minute window. Brief dips below reset the timer.
         expr: |
           container_memory_usage_bytes{name!=""}
             / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
-        for: 5m
+        for: 15m
         labels:
           severity: warning
         annotations:
           summary: "Container {{ $labels.name }} memory > 90% of its limit"
-          description: "'{{ $labels.name }}' on {{ $labels.host }} is using over 90% of its configured memory limit. Likely candidate for OOM kill."
+          description: "'{{ $labels.name }}' on {{ $labels.host }} has sustained memory usage over 90% of its configured limit for 15+ minutes. Likely candidate for OOM kill; consider raising the limit or investigating the leak."
 
       - alert: ContainerOOMKilled
         # Direct cAdvisor OOM-event counter. Known to silently miss fast
