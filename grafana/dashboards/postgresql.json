@@ -3,7 +3,7 @@
   "title": "PostgreSQL",
   "tags": ["soldevelo-monitoring", "postgresql", "components"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "timezone": "browser",
   "time": { "from": "now-3h", "to": "now" },
   "refresh": "30s",
@@ -202,10 +202,38 @@
       ]
     },
     {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Replication lag",
+      "description": "Seconds behind the primary. >900s (15 min) triggers PostgreSQLReplicationLag. Requires postgres_exporter's replication collector, running against the primary. Panel shows 'No data' if replication isn't configured or the exporter isn't pointed at the primary.",
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "red", "value": 900 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "pg_replication_lag{host=\"$host\"}",
+          "legendFormat": "lag (s)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 9,
       "type": "timeseries",
       "title": "Tuple operations (rate)",
-      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 7 },
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {

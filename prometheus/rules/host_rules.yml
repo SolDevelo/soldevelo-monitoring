@@ -49,4 +49,4 @@ groups:
           severity: critical
         annotations:
           summary: "Kernel OOM-kill event on {{ $labels.host }}"
-          description: "The kernel killed at least one process on {{ $labels.host }} due to memory pressure. Combined with the Containers dashboard, find which container hosted the killed process; ContainerOOMKilled fires alongside this when the victim was inside a container."
+          description: "The kernel OOM-killed at least one process on {{ $labels.host }} within the last 5m."

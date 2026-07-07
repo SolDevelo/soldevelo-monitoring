@@ -2,38 +2,32 @@ groups:
   - name: rabbitmq
     rules:
       - alert: RabbitMQDown
-        # rabbitmq_up=0 means the exporter reports the node as unreachable.
-        # Absence of the metric altogether = exporter itself down (covered by
-        # generic up{job="rabbitmq"}==0 pattern, if we add one later).
-        expr: rabbitmq_identity_info == 0
+        expr: up{job="rabbitmq"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "RabbitMQ node down on {{ $labels.host }}"
-          description: "RabbitMQ has been unreachable for 2 minutes. Any producer/consumer relying on this broker is stuck."
+          summary: "RabbitMQ down on {{ $labels.host }}"
+          description: "RabbitMQ on {{ $labels.host }} has been unreachable for 2m."
 
       - alert: RabbitMQNoConsumers
-        # Queue has messages but zero consumers = messages will never be
-        # delivered until someone consumes. Classic silent-failure pattern.
         expr: rabbitmq_queue_consumers == 0 and rabbitmq_queue_messages > 0
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "RabbitMQ queue '{{ $labels.queue }}' has messages but no consumers"
-          description: "Queue '{{ $labels.queue }}' on {{ $labels.host }} has been sitting with messages and no consumer attached for 5m. Likely a dead consumer process."
+          description: "Queue '{{ $labels.queue }}' on {{ $labels.host }} has held messages with zero consumers for 5m."
 
       - alert: RabbitMQQueueBacklog
-        # Sustained large backlog. Threshold is generous; project overlays
-        # can tighten per-queue via silence/inhibit or a project-specific rule.
+        # Threshold generous; tighten per-queue in project overlays if needed.
         expr: rabbitmq_queue_messages > 10000
         for: 15m
         labels:
           severity: warning
         annotations:
-          summary: "RabbitMQ queue backlog: '{{ $labels.queue }}' > 10k messages"
-          description: "Queue '{{ $labels.queue }}' on {{ $labels.host }} has held more than 10,000 messages for 15+ minutes. Producer likely outpacing consumer; investigate consumer throughput or scale up."
+          summary: "RabbitMQ queue '{{ $labels.queue }}' > 10k messages"
+          description: "Queue '{{ $labels.queue }}' on {{ $labels.host }} has held >10,000 messages for 15m."
 
       - alert: RabbitMQDiskLow
         expr: rabbitmq_disk_space_available_bytes < 5 * 1024 * 1024 * 1024
@@ -41,5 +35,5 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "RabbitMQ disk space low on {{ $labels.host }}"
-          description: "Less than 5 GB free on the RabbitMQ node's data disk. When disk fills, RabbitMQ blocks all publishers — this is a hard operational cliff, not a soft warning."
+          summary: "RabbitMQ disk space < 5 GB on {{ $labels.host }}"
+          description: "RabbitMQ data disk has <5 GB free on {{ $labels.host }} for 5m."

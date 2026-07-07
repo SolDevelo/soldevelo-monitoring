@@ -87,6 +87,10 @@ Alerts: **`prometheus/rules/postgresql_rules.yml`** ships with:
 - `PostgreSQLDeadlocks` — any deadlock rate for 5m. Occasional deadlocks
   under contention are normal; sustained rate usually means a lock-ordering
   bug in application code.
+- `PostgreSQLReplicationLag` — replica > 15 minutes behind primary.
+  Requires the exporter's replication collector to be enabled and the
+  exporter to be pointed at the primary. Panel and alert both show "No
+  data" if replication isn't configured.
 
 ## Multiple databases
 

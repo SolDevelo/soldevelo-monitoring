@@ -10,10 +10,14 @@
 
 # Per-deployment target lists for Prometheus file_sd (committed per project
 # as part of the overlay, not in the base package).
+/prometheus/targets/nodes/*.json
+/prometheus/targets/cadvisor/*.json
+/prometheus/targets/blackbox/*.json
 /prometheus/targets/java/*.json
 /prometheus/targets/python/*.json
 /prometheus/targets/rabbitmq/*.json
 /prometheus/targets/postgresql/*.json
+/prometheus/targets/jenkins/*.json
 
 # Local editor / OS junk
 .DS_Store

@@ -1,0 +1,189 @@
+{
+  "uid": "sdm-jenkins",
+  "title": "Jenkins",
+  "tags": ["soldevelo-monitoring", "jenkins", "components"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "time": { "from": "now-3h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(up{job=\"jenkins\"}, host)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Jenkins up",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" } }, "type": "value" },
+            { "options": { "1": { "text": "UP",   "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "targets": [
+        { "expr": "up{job=\"jenkins\",host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Health check score",
+      "description": "Jenkins' own aggregate health score. 1.0 = all internal checks pass. <1 triggers JenkinsHealthCheckFailed.",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        { "expr": "jenkins_health_check_score{host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Queue size",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "jenkins_queue_size_value{host=\"$host\"}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Executors in use",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "expr": "sum(jenkins_executor_in_use_value{host=\"$host\"})", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Executors — in use vs free",
+      "description": "Stacked. If 'free' hits zero and stays there, JenkinsExecutorSaturated fires.",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 40,
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(jenkins_executor_in_use_value{host=\"$host\"})",
+          "legendFormat": "in use",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(jenkins_executor_free_value{host=\"$host\"})",
+          "legendFormat": "free",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Queue size over time",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jenkins_queue_size_value{host=\"$host\"}",
+          "legendFormat": "queue",
+          "refId": "A"
+        },
+        {
+          "expr": "jenkins_queue_pending_value{host=\"$host\"}",
+          "legendFormat": "pending",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Node online / offline count",
+      "description": "Total online vs offline agent nodes. Nodes going offline unexpectedly is a common Jenkins failure mode.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(jenkins_node_online_value{host=\"$host\"})",
+          "legendFormat": "online",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(jenkins_node_offline_value{host=\"$host\"})",
+          "legendFormat": "offline",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Build results (last 24h, cumulative counters)",
+      "description": "Cumulative build outcome counters from Jenkins. Rate over 24h reflects your CI throughput.",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(jenkins_builds_success_build_count{host=\"$host\"}[1h]))",
+          "legendFormat": "success/hr",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(jenkins_builds_failed_build_count{host=\"$host\"}[1h]))",
+          "legendFormat": "failed/hr",
+          "refId": "B"
+        }
+      ]
+    }
+  ]
+}

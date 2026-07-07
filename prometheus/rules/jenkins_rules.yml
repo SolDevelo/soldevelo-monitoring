@@ -1,0 +1,45 @@
+groups:
+  - name: jenkins
+    rules:
+      - alert: JenkinsDown
+        expr: up{job="jenkins"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Jenkins down on {{ $labels.host }}"
+          description: "Jenkins on {{ $labels.host }} has been unreachable for 2m."
+
+      - alert: JenkinsHealthCheckFailed
+        # Jenkins Prometheus plugin exposes an aggregate health score (thread
+        # deadlock / disk space / plugin / etc.); <1 means at least one
+        # internal check failed.
+        expr: jenkins_health_check_score < 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jenkins health check failing on {{ $labels.host }}"
+          description: "Jenkins on {{ $labels.host }} reports a failing health check for 5m."
+
+      - alert: JenkinsQueueBacklog
+        # Threshold generous; tighten per project in overlays if needed.
+        expr: jenkins_queue_size_value > 10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jenkins build queue > 10 on {{ $labels.host }}"
+          description: "Jenkins build queue on {{ $labels.host }} has held >10 items for 30m."
+
+      - alert: JenkinsExecutorSaturated
+        # Direct cause of queue backlog (which is a downstream symptom).
+        expr: |
+          sum(jenkins_executor_free_value) == 0
+            and sum(jenkins_executor_in_use_value) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jenkins zero free executors on {{ $labels.host }}"
+          description: "Jenkins on {{ $labels.host }} has had zero free executors for 30m."

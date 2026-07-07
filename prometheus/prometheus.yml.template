@@ -18,18 +18,20 @@ scrape_configs:
       - targets: ["localhost:9090"]
 
   - job_name: node
-    static_configs:
-      - targets:
-          - "${TARGET_HOST}:${TARGET_NODE_EXPORTER_PORT}"
-        labels:
-          host: "${TARGET_NAME}"
+    # Targets come from JSON files in prometheus/targets/nodes/*.json.
+    # See docs/host-setup.md for the file format.
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/nodes/*.json
+        refresh_interval: 30s
 
   - job_name: cadvisor
-    static_configs:
-      - targets:
-          - "${TARGET_HOST}:${TARGET_CADVISOR_PORT}"
-        labels:
-          host: "${TARGET_NAME}"
+    # Targets come from JSON files in prometheus/targets/cadvisor/*.json.
+    # Usually paired 1:1 with the nodes/ file for each host.
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/cadvisor/*.json
+        refresh_interval: 30s
 
   - job_name: java
     # Targets come from JSON files in prometheus/targets/java/*.json.
@@ -83,12 +85,25 @@ scrape_configs:
           - /etc/prometheus/targets/postgresql/*.json
         refresh_interval: 30s
 
+  - job_name: jenkins
+    # Jenkins Prometheus plugin exposes /prometheus by default (not /metrics).
+    # See docs/jenkins-setup.md.
+    metrics_path: /prometheus
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/jenkins/*.json
+        refresh_interval: 30s
+
   - job_name: blackbox_http
+    # Probe URLs come from JSON files in prometheus/targets/blackbox/*.json.
+    # See docs/blackbox-setup.md for the file format.
     metrics_path: /probe
     params:
       module: [http_2xx]
-    static_configs:
-      - targets: ${BLACKBOX_PROBE_TARGETS}
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/blackbox/*.json
+        refresh_interval: 30s
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

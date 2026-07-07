@@ -3,7 +3,7 @@
   "title": "JVM application",
   "tags": ["soldevelo-monitoring", "java", "jvm"],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "timezone": "browser",
   "time": { "from": "now-3h", "to": "now" },
   "refresh": "30s",
@@ -238,11 +238,137 @@
       ]
     },
     {
+      "id": 12,
+      "type": "timeseries",
+      "title": "HTTP requests/sec by outcome",
+      "description": "Micrometer's http_server_requests_seconds_count grouped by outcome (SUCCESS / CLIENT_ERROR / SERVER_ERROR). Requires Spring Boot Actuator + web starter — auto-collected once actuator is on the classpath.",
+      "gridPos": { "x": 0, "y": 27, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "HTTP error rate (%)",
+      "description": "Fraction of requests returning 5xx (SERVER_ERROR) or 4xx (CLIENT_ERROR). >1% 5xx sustained triggers HttpServerErrorRateHigh; >5% 4xx sustained triggers HttpClientErrorRateHigh.",
+      "gridPos": { "x": 8, "y": 27, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{service=\"$service\",outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "legendFormat": "5xx",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{service=\"$service\",outcome=\"CLIENT_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "legendFormat": "4xx",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "HTTP latency (p50 / p95 / p99)",
+      "description": "Request-duration percentiles from the http_server_requests_seconds histogram. p95 > 2s for 5m triggers HttpLatencyP95High.",
+      "gridPos": { "x": 16, "y": 27, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "HikariCP connections",
+      "description": "Active vs idle vs max per pool. If active approaches max and stays there, you're saturating the pool — HikariCPPoolExhausted will fire.",
+      "gridPos": { "x": 0, "y": 34, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (pool) (hikaricp_connections_active{service=\"$service\"})",
+          "legendFormat": "{{pool}} active",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (pool) (hikaricp_connections_idle{service=\"$service\"})",
+          "legendFormat": "{{pool}} idle",
+          "refId": "B"
+        },
+        {
+          "expr": "max by (pool) (hikaricp_connections_max{service=\"$service\"})",
+          "legendFormat": "{{pool}} max",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "HikariCP pending (should be zero)",
+      "description": "Threads waiting for a connection. Anything > 0 means the pool is saturated at that moment. Sustained non-zero triggers HikariCPPoolExhausted.",
+      "gridPos": { "x": 12, "y": 34, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (pool) (hikaricp_connections_pending{service=\"$service\"})",
+          "legendFormat": "{{pool}} pending",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 11,
       "type": "logs",
       "title": "Logs (from $container)",
       "description": "Loki logs from containers whose name contains the selected service. Adjust the container variable at the top if the auto-match doesn't line up with your naming.",
-      "gridPos": { "x": 0, "y": 27, "w": 24, "h": 12 },
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 12 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": { "showTime": true, "wrapLogMessage": false, "dedupStrategy": "none" },
       "targets": [

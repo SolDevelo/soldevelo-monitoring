@@ -6,6 +6,105 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-07
+
+Preparation release for the OpenLMIS Malawi rollout (second adopter).
+Normalizes target configuration across all scrape jobs so multi-host,
+multi-environment deployments are first-class instead of a copy-paste
+workaround. Adds HTTP RED metrics, HikariCP pool monitoring, PostgreSQL
+replication lag, and a Jenkins component — all needed for parity with the
+current Malawi CloudWatch + DataSet coverage. Also folds a review-pass
+sweep on alert descriptions, dashboard defaults, and setup docs.
+
+### ⚠️ Breaking changes — migration from 0.2.x
+
+**All target configuration now uses file_sd JSON files. The old
+env-var-based single-target model is gone.** Affected variables in `.env`:
+
+- Removed (stack side): `TARGET_HOST`, `TARGET_NAME` (still used on the
+  agents side — see below), `BLACKBOX_PROBE_TARGETS`.
+- Kept (agents side only): `TARGET_NAME`, `TARGET_NODE_EXPORTER_PORT`,
+  `TARGET_CADVISOR_PORT`. Agents' Promtail still uses `TARGET_NAME` as the
+  `host` label on log streams.
+
+**Migration steps for 0.2.x users:**
+
+1. Delete `TARGET_HOST`, `TARGET_NAME` (stack side), and
+   `BLACKBOX_PROBE_TARGETS` from the monitoring host's `.env`.
+2. Create paired target files under `prometheus/targets/nodes/` and
+   `prometheus/targets/cadvisor/` — one entry per host, using the same
+   `host` label you had as `TARGET_NAME`. See `docs/host-setup.md`.
+3. Move the URLs from your old `BLACKBOX_PROBE_TARGETS` array into
+   `prometheus/targets/blackbox/<project>.json`. See `docs/blackbox-setup.md`.
+4. `bin/render-configs.sh && docker compose -f stack/docker-compose.yml up
+   -d --force-recreate prometheus`.
+
+Existing `prometheus/targets/java/`, `python/`, `rabbitmq/`, `postgresql/`
+files continue to work unchanged.
+
+### Added
+
+- **`nodes/`, `cadvisor/`, `blackbox/`, `jenkins/` target directories** —
+  every scrape job now uses the same file_sd pattern. Adding a host, a
+  probe URL, or a Jenkins server is a JSON entry, not a base-file edit.
+- **HTTP RED metrics for Spring Boot services** — three new alerts
+  (`HttpServerErrorRateHigh` at 1% 5xx for 5m, `HttpClientErrorRateHigh`
+  at 5% 4xx for 10m, `HttpLatencyP95High` at 2s for 5m). Three new panels
+  on the JVM Application dashboard covering request rate by outcome,
+  error rate %, and p50/p95/p99 latency. Zero code changes required on
+  the app side — Micrometer auto-collects `http_server_requests_seconds`
+  once `spring-boot-starter-actuator` + web starter is on the classpath.
+- **HikariCP connection pool monitoring** — new `HikariCPPoolExhausted`
+  alert on `hikaricp_connections_pending > 0 for 2m` (the definitive
+  signal that requests are queuing for a DB connection). Two new panels
+  on the JVM Application dashboard: active/idle/max connections and
+  pending count. Also auto-collected by Spring Boot Actuator when HikariCP
+  is the connection pool (default in modern Spring Boot).
+- **PostgreSQL replication lag** — new `PostgreSQLReplicationLag` alert
+  (`pg_replication_lag > 900s` for 5m) and dashboard panel with staged
+  thresholds. Matches the Malawi Tableau replica-lag alarm shape. Requires
+  `postgres_exporter`'s replication collector, pointed at the primary.
+- **Jenkins component** — new `jenkins` scrape job, dashboard
+  (`grafana/dashboards/jenkins.json`), four alert rules (`JenkinsDown`,
+  `JenkinsHealthCheckFailed`, `JenkinsQueueBacklog`,
+  `JenkinsExecutorSaturated`), and setup guide (`docs/jenkins-setup.md`)
+  covering the Jenkins Prometheus plugin.
+- **Two new setup docs**: `docs/host-setup.md` (onboarding a target host
+  with paired nodes/cadvisor JSON files) and `docs/blackbox-setup.md`
+  (HTTP probe target configuration).
+
+### Changed
+
+- `.env.example` reorganised into explicit "STACK SIDE" and "AGENTS SIDE"
+  sections, since the two sides now have meaningfully different variable
+  sets after the file_sd normalization.
+- **Alert descriptions homogenized to a terse style.** All rule files
+  match the pattern in `host_rules.yml`: `summary` is a short label with
+  the threshold; `description` is a single factual sentence. Removed
+  embedded remediation prose (a future release will add `runbook_url`
+  annotations pointing to per-alert runbooks; descriptions no longer need
+  to duplicate that content). Affects `jvm_rules.yml`, `postgresql_rules.yml`,
+  `container_rules.yml`, `jenkins_rules.yml`, `rabbitmq_rules.yml`,
+  `host_rules.yml` (HostOOMKill), and Loki `loki_rules.yaml`.
+- **Dashboard default time ranges normalized to `now-3h`.** The four
+  dashboards that were on `now-6h` (`alerts.json`, `blackbox.json`,
+  `home.json`, `jenkins.json`) now match the rest.
+- **Setup docs trimmed.** `docs/java-app-setup.md` and
+  `docs/python-app-setup.md` dropped the "optional but recommended"
+  digressions and reduced "common gotchas" to the top three per doc.
+
+### Fixed
+
+- **`RabbitMQDown` never fired.** The rule expression was
+  `rabbitmq_identity_info == 0`, but when RabbitMQ is unreachable the
+  metric is absent rather than zero. Corrected to `up{job="rabbitmq"} == 0`,
+  matching `PostgreSQLDown` / `JenkinsDown` / `InstanceDown`.
+- **`.env.example` — `TARGET_NAME` comment corrected.** The old comment
+  claimed Promtail relabels metric-side `host` labels using `TARGET_NAME`;
+  it doesn't. `TARGET_NAME` is only used by Promtail as the `host` label
+  on log streams. Metric-side `host` labels come from the target JSON
+  files on the monitoring host.
+
 ## [0.2.0] — 2026-06-11
 
 First feedback-driven release, informed by real production use of `0.1.x`
@@ -210,7 +309,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/soldevelo/soldevelo-monitoring/releases/tag/v0.1.0

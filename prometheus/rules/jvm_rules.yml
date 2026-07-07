@@ -12,25 +12,24 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "JVM heap pressure: {{ $labels.service }} > 85% for 10m"
-          description: "Heap on '{{ $labels.service }}' ({{ $labels.host }}) sustained above 85%. Imminent OOM risk. Capture a heap dump (jmap / -XX:+HeapDumpOnOutOfMemoryError) and inspect top retainers."
+          summary: "JVM heap > 85% on {{ $labels.service }}"
+          description: "Heap on '{{ $labels.service }}' ({{ $labels.host }}) is above 85% for 10m."
 
       - alert: JvmGCThrashing
-        # >25% of wall-clock time spent in GC. The classic 'about to die'
-        # signal — typically precedes OOM by minutes.
+        # >25% of wall-clock time spent in GC — classic 'about to OOM' signal.
         expr: |
           sum by (service, host) (rate(jvm_gc_pause_seconds_sum[5m])) > 0.25
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "JVM GC thrashing: {{ $labels.service }} > 25% time in GC"
-          description: "'{{ $labels.service }}' on {{ $labels.host }} is spending more than 25% of wall-clock time in GC for 5m. The JVM is fighting a losing battle; OOM very likely within minutes. Restart and capture a heap dump for forensics."
+          summary: "JVM GC thrashing on {{ $labels.service }}"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} spent >25% of wall-clock time in GC for 5m."
 
       - alert: JvmMetaspacePressure
         # Metaspace OOM is rarer but real — apps that load many classes
-        # (dynamic proxies, code generation, bytecode manipulation) can
-        # exhaust Metaspace without ever filling heap.
+        # (dynamic proxies, code generation) can exhaust Metaspace without
+        # ever filling heap.
         expr: |
           sum by (service, host) (jvm_memory_used_bytes{area="nonheap",id=~".*[Mm]etaspace.*"})
             / sum by (service, host) (jvm_memory_max_bytes{area="nonheap",id=~".*[Mm]etaspace.*"} > 0) > 0.9
@@ -38,13 +37,12 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "JVM Metaspace pressure: {{ $labels.service }} > 90%"
-          description: "Metaspace usage on '{{ $labels.service }}' ({{ $labels.host }}) over 90% for 10m. Likely cause: classloader leak (e.g. repeated redeployment without restart, dynamic proxies, code generation). Increase -XX:MaxMetaspaceSize or investigate classloader retention."
+          summary: "JVM Metaspace > 90% on {{ $labels.service }}"
+          description: "Metaspace on '{{ $labels.service }}' ({{ $labels.host }}) is above 90% for 10m."
 
       - alert: JvmThreadGrowth
         # Threads should reach a stable level after warmup. Sustained growth
-        # is usually an unbounded thread pool / thread leak (e.g. creating
-        # new Executors per request, untracked daemon threads).
+        # is usually an unbounded thread pool / thread leak.
         expr: |
           (jvm_threads_live_threads - jvm_threads_live_threads offset 1h) > 50
             and jvm_threads_live_threads > 100
@@ -52,8 +50,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "JVM thread count growing: {{ $labels.service }} +50 over 1h"
-          description: "'{{ $labels.service }}' on {{ $labels.host }} has grown its thread count by more than 50 over the last hour, and is now above 100 live threads. Common cause: thread leak (unbounded executor, missed shutdown). Capture a thread dump (jstack)."
+          summary: "JVM thread count growing on {{ $labels.service }}"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} added >50 live threads over the last 1h and is now above 100."
 
       - alert: JvmScrapeDown
         expr: up{job="java"} == 0
@@ -61,5 +59,51 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "JVM scrape failing: {{ $labels.service }} unreachable"
-          description: "Prometheus cannot scrape '{{ $labels.instance }}' (service={{ $labels.service }}) for 2m. Either the app is down, the actuator endpoint is misconfigured, or the JVM is blocked. If the container is up but this is firing, suspect a deadlock or accept-thread starvation."
+          summary: "JVM scrape failing on {{ $labels.service }}"
+          description: "Prometheus cannot scrape '{{ $labels.instance }}' (service={{ $labels.service }}) for 2m."
+
+      - alert: HttpServerErrorRateHigh
+        # Micrometer's `outcome` label buckets responses; SERVER_ERROR is 5xx.
+        expr: |
+          sum by (service, host) (rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]))
+            / sum by (service, host) (rate(http_server_requests_seconds_count[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx rate > 1% on {{ $labels.service }}"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} served >1% 5xx responses over 5m."
+
+      - alert: HttpClientErrorRateHigh
+        # 4xx often includes expected traffic (bad input, auth); threshold gentler.
+        expr: |
+          sum by (service, host) (rate(http_server_requests_seconds_count{outcome="CLIENT_ERROR"}[5m]))
+            / sum by (service, host) (rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP 4xx rate > 5% on {{ $labels.service }}"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} served >5% 4xx responses over 10m."
+
+      - alert: HttpLatencyP95High
+        expr: |
+          histogram_quantile(0.95,
+            sum by (service, host, le) (rate(http_server_requests_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p95 latency > 2s on {{ $labels.service }}"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} has p95 request latency above 2s for 5m."
+
+      - alert: HikariCPPoolExhausted
+        # Pending > 0 means threads are waiting for connections — pool saturated.
+        expr: hikaricp_connections_pending > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HikariCP pool saturated on {{ $labels.service }} (pool={{ $labels.pool }})"
+          description: "Pool '{{ $labels.pool }}' on '{{ $labels.service }}' ({{ $labels.host }}) has queued pending connections for 2m."

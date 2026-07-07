@@ -6,7 +6,7 @@ dashboards-as-code, pre-baked alerts wired to Slack, and a documented metric
 catalog so the same names mean the same things across projects. Deployable on
 any Linux host with Docker.
 
-**Version:** `0.2.0`. See [`CHANGELOG.md`](CHANGELOG.md).
+**Version:** `0.3.0`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in the box
 
@@ -39,11 +39,12 @@ any Linux host with Docker.
 - **prometheus/**, **loki/**, **alertmanager/**, **blackbox/**, **grafana/** —
   configs (templates rendered from `.env` plus committed rule files).
 - **bin/render-configs.sh** — envsubst `*.template` files using `.env` values.
-- **docs/** — `metrics.md` (catalog and conventions), `java-app-setup.md`,
-  `python-app-setup.md`, `business-metrics.md`, `rabbitmq-setup.md`,
-  `postgresql-setup.md`.
+- **docs/** — `metrics.md` (catalog and conventions), `host-setup.md`,
+  `blackbox-setup.md`, `java-app-setup.md`, `python-app-setup.md`,
+  `business-metrics.md`, `rabbitmq-setup.md`, `postgresql-setup.md`,
+  `jenkins-setup.md`.
 
-### Dashboards (eight, all provisioned-as-code)
+### Dashboards (ten, all provisioned-as-code)
 
 - **SolDevelo Monitoring** (home) — alert counts, dashboard list, quick links.
 - **Host overview** — CPU, memory, disk, per-NIC network, load.
@@ -51,14 +52,17 @@ any Linux host with Docker.
   totals, and a live log stream filtered by host + container.
 - **HTTP probes** — Blackbox probe status, latency, SSL cert days remaining.
 - **JVM application** — Spring Boot / Micrometer metrics: heap %, GC overhead,
-  pauses, per-pool memory, thread states, process CPU, logs for the service's
+  pauses, per-pool memory, thread states, process CPU, HTTP RED (rate /
+  errors / latency), HikariCP connection pool, logs for the service's
   container. Multi-service via variable picker.
 - **Python application** — process memory / CPU / FDs, GC, optional HTTP
   RED, business-metrics section, logs.
 - **RabbitMQ** — node health, per-queue depth, publish/deliver rates,
   consumers, unacked messages, broker memory / disk.
 - **PostgreSQL** — up/down, connection utilization, cache hit ratio,
-  commit/rollback rate, deadlocks, DB size, tuple ops.
+  commit/rollback rate, deadlocks, DB size, tuple ops, replication lag.
+- **Jenkins** — up/health, executor utilization, queue size, agent nodes,
+  build success/failure rates.
 - **Active alerts** — table of currently firing and pending alerts, severity
   colour-coded, with stat counts up top.
 
@@ -70,11 +74,15 @@ any Linux host with Docker.
   `ContainerOOMKilled`, `ContainerRestartLoop`.
 - **HTTP probes**: `ProbeFailing`, `ProbeSlow`, `SSLCertExpiringSoon`.
 - **JVM**: `JvmHeapPressure`, `JvmGCThrashing`, `JvmMetaspacePressure`,
-  `JvmThreadGrowth`, `JvmScrapeDown`.
+  `JvmThreadGrowth`, `JvmScrapeDown`, `HttpServerErrorRateHigh`,
+  `HttpClientErrorRateHigh`, `HttpLatencyP95High`, `HikariCPPoolExhausted`.
 - **RabbitMQ**: `RabbitMQDown`, `RabbitMQNoConsumers`,
   `RabbitMQQueueBacklog`, `RabbitMQDiskLow`.
 - **PostgreSQL**: `PostgreSQLDown`, `PostgreSQLTooManyConnections`,
-  `PostgreSQLLowCacheHitRatio`, `PostgreSQLDeadlocks`.
+  `PostgreSQLLowCacheHitRatio`, `PostgreSQLDeadlocks`,
+  `PostgreSQLReplicationLag`.
+- **Jenkins**: `JenkinsDown`, `JenkinsHealthCheckFailed`,
+  `JenkinsQueueBacklog`, `JenkinsExecutorSaturated`.
 - **Logs**: `ErrorLogsSpike`, `JvmOutOfMemoryError`, `JvmGCOverheadLimit`,
   `JvmStackOverflowError`, `JvmFatalSignal`.
 - **Monitor self-health**: `MonitorDiskLow`, `PrometheusUnreachable`,
@@ -100,7 +108,7 @@ any Linux host with Docker.
 
 ```bash
 cp .env.example .env
-$EDITOR .env                       # MONITORING_*, GRAFANA_*, SLACK_*, TARGET_*
+$EDITOR .env                       # STACK-SIDE vars: MONITORING_*, GRAFANA_*, SLACK_*
 bin/render-configs.sh
 docker compose --env-file .env -f stack/docker-compose.yml up -d
 xdg-open "${MONITORING_SITE:-http://localhost}"
@@ -108,6 +116,18 @@ xdg-open "${MONITORING_SITE:-http://localhost}"
 
 Grafana login: whatever you set in `GRAFANA_ADMIN_*`. You'll land on the
 **SolDevelo Monitoring** home dashboard.
+
+Then register the things you want monitored by dropping JSON files in
+`prometheus/targets/<component>/`. See:
+- [`docs/host-setup.md`](docs/host-setup.md) — host onboarding (paired
+  `nodes/` + `cadvisor/` targets).
+- [`docs/blackbox-setup.md`](docs/blackbox-setup.md) — HTTP probes.
+- [`docs/java-app-setup.md`](docs/java-app-setup.md),
+  [`docs/python-app-setup.md`](docs/python-app-setup.md) — application
+  scrape targets.
+- [`docs/rabbitmq-setup.md`](docs/rabbitmq-setup.md),
+  [`docs/postgresql-setup.md`](docs/postgresql-setup.md),
+  [`docs/jenkins-setup.md`](docs/jenkins-setup.md) — stack components.
 
 ## Reverse proxy (Caddy) — works the same on laptop and EC2
 
@@ -141,13 +161,18 @@ On each server you want to monitor:
 git clone <this repo>
 cd soldevelo-monitoring
 cp .env.example .env
-$EDITOR .env                       # TARGET_NAME, MONITORING_SERVER_HOST
+$EDITOR .env                       # AGENTS-SIDE vars: TARGET_NAME, MONITORING_SERVER_HOST
 bin/render-configs.sh
 docker compose --env-file .env -f agents/docker-compose.yml up -d
 ```
 
 Verify on the target: `curl http://localhost:9100/metrics` (node-exporter) and
 `http://localhost:9180/metrics` (cAdvisor) both return Prometheus-format data.
+
+Then on the **monitoring host**, register the target by adding an entry to
+paired JSON files in `prometheus/targets/nodes/*.json` and
+`prometheus/targets/cadvisor/*.json`. Full walkthrough:
+[`docs/host-setup.md`](docs/host-setup.md).
 
 ## Adding a Java application
 
@@ -175,8 +200,9 @@ single JSON file — same shape, scales without further refactoring.
 - **Grafana → SolDevelo Monitoring (home)** — alert counts, dashboard list,
   currently-firing table.
 - **Prometheus → Status → Targets** at `http://<monitor-host>:9090/targets` —
-  every job (`node`, `cadvisor`, `blackbox_http`, `java`, meta jobs) should
-  be `UP`.
+  every configured job (`node`, `cadvisor`, `blackbox_http`, `java`,
+  `python`, `rabbitmq`, `postgresql`, `jenkins`, meta jobs) should be `UP`.
+  Jobs with no target JSON files simply show empty — expected.
 - **Alertmanager** at `http://<monitor-host>:9093` — firing alerts, silences,
   routing.
 - **Slack** — set a probe URL to something broken (e.g.
@@ -191,10 +217,16 @@ For development and evaluation: run stack + agents on the same Docker host.
 `host-gateway` alias on Prometheus / Blackbox / Promtail to make that resolve
 on Linux Docker.
 
+On the **agents side** of `.env`:
 ```env
-TARGET_HOST=host.docker.internal
+TARGET_NAME=<host-slug>
 MONITORING_SERVER_HOST=host.docker.internal
-BLACKBOX_PROBE_TARGETS='["http://host.docker.internal:8081"]'
+```
+
+On the **monitoring host**, use `host.docker.internal` as the address in
+target JSON files:
+```json
+[{"targets": ["host.docker.internal:9100"], "labels": {"host": "<host-slug>"}}]
 ```
 
 Port collision: if Grafana's `3000` clashes with something else (e.g.
@@ -208,13 +240,16 @@ docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreat
 docker compose --env-file .env -f agents/docker-compose.yml up -d --force-recreate promtail
 ```
 
+Target JSON changes need no render/restart — Prometheus hot-reloads them
+every 30 seconds.
+
 ## Operating notes
 
 - **After `.env` edits** — re-run `bin/render-configs.sh` AND force-recreate
   any containers that bind-mount the rendered config (Prometheus,
   Alertmanager, Blackbox, Promtail). A plain `restart` doesn't always pick up
   bind-mounted file changes.
-- **After Java target list edits** (`prometheus/targets/java/*.json`) —
+- **After target-file edits** (`prometheus/targets/<component>/*.json`) —
   Prometheus hot-reloads file_sd within 30 s. No render, no restart.
 - **Resetting state** — `docker compose down -v` wipes Prometheus, Loki, and
   Grafana data volumes. Keep a backup before doing this in anger.
@@ -222,7 +257,7 @@ docker compose --env-file .env -f agents/docker-compose.yml up -d --force-recrea
   proxy automatically. For production, firewall the direct Grafana port
   (3001) so the only entry path is through Caddy on 80/443. Prometheus
   (9090) and Alertmanager (9093) should similarly not be public.
-- **Secrets** — `.env` and `prometheus/targets/java/*.json` are gitignored.
+- **Secrets** — `.env` and `prometheus/targets/**/*.json` are gitignored.
   Don't commit them.
 
 ## Conventions
@@ -252,15 +287,16 @@ goes on a git tag is always semver.
 
 ## Roadmap
 
-- **V1 (in progress)** — partially shipped in `0.1.0` (Java/Micrometer
-  scrape + JVM dashboard + JVM alerts + file_sd for multi-app). Remaining:
-  HTTP RED dashboard for Spring services, second target adopter (OpenLMIS
-  Malawi) which is what forces the distribution model honest.
+- **V1 (nearly complete)** — shipped across `0.1.0`–`0.3.0`: Java /
+  Micrometer scrape + JVM dashboard + JVM alerts + HTTP RED + HikariCP +
+  Python + RabbitMQ + PostgreSQL + Jenkins + business-metrics convention
+  + file_sd everywhere. Remaining: second adopter deployment (OpenLMIS
+  Malawi) to prove the distribution model in practice.
 - **V2** — Terraform module to provision the monitoring VM on AWS:
   EC2 + EBS + Route53 + Caddy reverse proxy + automatic backups.
 - **V3+** — Frontend RUM (Grafana Faro), multi-tenant Grafana, Helm/K8s
-  variant, business-metrics cookbook, runbook directory linked from alert
-  payloads.
+  variant, unified Service dashboard (constant top + technology-adaptive
+  panels), runbook directory linked from alert payloads.
 
 ## Why these choices
 
@@ -276,9 +312,11 @@ goes on a git tag is always semver.
   default. Without it, the netdev / netclass collectors see the container's
   own netns rather than the real host's — which produces near-zero network
   numbers that look like the host is idle when it isn't.
-- **Patterns over single-target env vars** for Java apps. `JAVA_APP_*` env
-  vars don't compose past one app; file_sd JSON files do, and Prometheus
-  hot-reloads them with no restart.
+- **File_sd everywhere** for target configuration. Every scrape job — hosts,
+  containers, HTTP probes, Java apps, Python apps, PostgreSQL, RabbitMQ,
+  Jenkins — reads targets from `prometheus/targets/<component>/*.json`.
+  Consistent pattern, hot-reloaded, scales from one target to fifty
+  without any base-file edits.
 
 ## License
 
