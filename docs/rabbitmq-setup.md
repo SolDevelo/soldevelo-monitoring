@@ -12,7 +12,14 @@ Inside the RabbitMQ container / host:
 rabbitmq-plugins enable rabbitmq_prometheus
 ```
 
-The plugin exposes metrics on port **15692** at `/metrics` by default.
+The plugin exposes metrics on port **15692**. We scrape **`/metrics/per-object`**
+(configured in `prometheus/prometheus.yml`) — that endpoint emits one series per
+queue with a `queue=` label. The default `/metrics` endpoint returns aggregated
+metrics with no `queue` label, which leaves Grafana's Queue picker empty and
+stops `RabbitMQNoConsumers` / `RabbitMQQueueBacklog` from firing per-queue. If
+you have thousands of queues and cardinality is a concern, switch back to
+`/metrics` and accept that per-queue views/alerts go dark.
+
 Persistent enablement survives restart.
 
 If you're using a Docker image with a mounted `enabled_plugins` file:
@@ -21,8 +28,11 @@ If you're using a Docker image with a mounted `enabled_plugins` file:
 [rabbitmq_management,rabbitmq_prometheus].
 ```
 
-Verify from the RabbitMQ host: `curl http://localhost:15692/metrics | head`
-should print `rabbitmq_*` metrics.
+Verify from the RabbitMQ host:
+`curl http://localhost:15692/metrics/per-object | grep '^rabbitmq_queue_messages{'`
+should print one line per queue with a `queue="…"` label. If it prints lines
+without a `queue=` label, you're hitting the wrong endpoint or the plugin
+version is too old.
 
 ## 2. Publish the port
 
@@ -103,11 +113,12 @@ deduplicated by node.
 
 - **`/metrics` returns 404 or empty.** Plugin not enabled. Check
   `rabbitmq-plugins list | grep prometheus` — should show `E`.
-- **Metrics exist but queue metrics are empty.** In some versions the
-  plugin has `queue.messages` disabled by default for cardinality reasons
-  when you have very many queues. If you have <100 queues, no issue. If
-  more, enable `rabbitmq_prometheus_metrics_aggregated_queues=false`
-  through the RabbitMQ config to see per-queue metrics.
+- **Grafana's Queue picker is empty / per-queue panels are blank, but
+  totals show data.** The scrape is hitting `/metrics` (aggregated, no
+  `queue` label) instead of `/metrics/per-object`. Check `metrics_path`
+  in `prometheus/prometheus.yml` under `job_name: rabbitmq` — it must be
+  `/metrics/per-object`. Same symptom silently disables the
+  `RabbitMQNoConsumers` and `RabbitMQQueueBacklog` alerts.
 - **Port 15692 refused from monitoring host.** Firewall / security group.
   Same fix as opening 9100 for node-exporter.
 - **Metrics show up but there's no `host` label.** You forgot the target

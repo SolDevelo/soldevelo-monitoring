@@ -71,7 +71,10 @@ scrape_configs:
   - job_name: rabbitmq
     # RabbitMQ Prometheus plugin (3.8+ built-in on :15692) or
     # rabbitmq_exporter sidecar. See docs/rabbitmq-setup.md.
-    metrics_path: /metrics
+    # /metrics/per-object exposes per-queue series (queue= label). The default
+    # /metrics endpoint is aggregated and has no queue label, which leaves the
+    # Grafana Queue picker empty and prevents per-queue alerts from firing.
+    metrics_path: /metrics/per-object
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/rabbitmq/*.json
