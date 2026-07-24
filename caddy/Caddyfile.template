@@ -12,5 +12,20 @@
 
 ${MONITORING_SITE} {
     encode gzip
-    reverse_proxy grafana:3000
+
+    # Bearer-gated remote push; handle_path strips the prefix. docs/remote-push-setup.md
+    handle_path /ingest/prometheus/* {
+        @noauth not header Authorization "Bearer ${INGEST_TOKEN}"
+        respond @noauth "Unauthorized" 401
+        reverse_proxy prometheus:9090
+    }
+    handle_path /ingest/loki/* {
+        @noauth not header Authorization "Bearer ${INGEST_TOKEN}"
+        respond @noauth "Unauthorized" 401
+        reverse_proxy loki:3100
+    }
+
+    handle {
+        reverse_proxy grafana:3000
+    }
 }

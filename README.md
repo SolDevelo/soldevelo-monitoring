@@ -42,7 +42,8 @@ any Linux host with Docker.
 - **docs/** — `metrics.md` (catalog and conventions), `host-setup.md`,
   `blackbox-setup.md`, `java-app-setup.md`, `python-app-setup.md`,
   `business-metrics.md`, `rabbitmq-setup.md`, `postgresql-setup.md`,
-  `jenkins-setup.md`.
+  `jenkins-setup.md`, `remote-push-setup.md` (accept metrics/logs pushed in
+  from a deployment on another network/account).
 
 ### Dashboards (ten, all provisioned-as-code)
 
@@ -128,6 +129,9 @@ Then register the things you want monitored by dropping JSON files in
 - [`docs/rabbitmq-setup.md`](docs/rabbitmq-setup.md),
   [`docs/postgresql-setup.md`](docs/postgresql-setup.md),
   [`docs/jenkins-setup.md`](docs/jenkins-setup.md) — stack components.
+- [`docs/remote-push-setup.md`](docs/remote-push-setup.md) — for a deployment
+  on another network / AWS account that can't be scraped: run Grafana Alloy
+  there and have it push metrics + logs to this host over authenticated HTTPS.
 
 ## Reverse proxy (Caddy) — works the same on laptop and EC2
 

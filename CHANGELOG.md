@@ -7,6 +7,12 @@ follows [semver](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Remote push ingest** — a deployment on another network / AWS account that
+  can't be scraped runs Grafana Alloy and pushes metrics + logs in. Prometheus
+  gains `--web.enable-remote-write-receiver`; Caddy exposes two bearer-gated
+  paths on `MONITORING_SITE` (`/ingest/prometheus/api/v1/write`,
+  `/ingest/loki/loki/api/v1/push`), keeping 9090 / 3100 off the public
+  internet. New `INGEST_TOKEN`; runbook in `docs/remote-push-setup.md`.
 - **`app` and `deployment` labels on every scrape target**, establishing a
   three-level identity: `app` (the application) → `deployment` (a specific
   deployment of it, e.g. `sdd`, `ilo`) → `service` (component within the app).
