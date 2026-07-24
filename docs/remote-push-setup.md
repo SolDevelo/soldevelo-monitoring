@@ -60,11 +60,12 @@ From any machine that can reach the site (substitute your token):
 
 ```bash
 # Loki push — expect 204 No Content on success, 401 without the token.
-curl -sS -o /dev/null -w "%{http_code}\n" \
+# (-w prints the code; body prints too, so Loki's reason shows on a 400.)
+curl -sS -w '\n%{http_code}\n' \
   -H "Authorization: Bearer $INGEST_TOKEN" \
   -H "Content-Type: application/json" \
   "https://sdd-monitoring.soldevelo.com/ingest/loki/loki/api/v1/push" \
-  --data-raw '{"streams":[{"stream":{"app":"cfp-classifier","deployment":"ilo","service":"smoke-test"},"values":[["'"$(date +%s)000000000"'","hello from remote push"]]}}]'
+  --data-raw '{"streams":[{"stream":{"app":"cfp-classifier","deployment":"ilo","service":"smoke-test"},"values":[["'"$(date +%s%N)"'","hello from remote push"]]}]}'
 
 # Same URL without the header should return 401.
 ```
