@@ -67,6 +67,8 @@ in that scope.
   {
     "targets": ["10.0.1.10:9100"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-prod-app",
       "environment": "production"
     }
@@ -74,6 +76,8 @@ in that scope.
   {
     "targets": ["10.0.1.11:9100"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-prod-db",
       "environment": "production"
     }
@@ -81,6 +85,8 @@ in that scope.
   {
     "targets": ["10.0.2.10:9100"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-uat-app",
       "environment": "uat"
     }
@@ -94,6 +100,8 @@ in that scope.
   {
     "targets": ["10.0.1.10:9180"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-prod-app",
       "environment": "production"
     }
@@ -101,6 +109,8 @@ in that scope.
   {
     "targets": ["10.0.1.11:9180"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-prod-db",
       "environment": "production"
     }
@@ -108,6 +118,8 @@ in that scope.
   {
     "targets": ["10.0.2.10:9180"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "host": "malawi-uat-app",
       "environment": "uat"
     }
@@ -118,8 +130,16 @@ in that scope.
 **The two files are mirrors** — same hosts, different ports, same labels.
 The `host` label needs to match what you set as `TARGET_NAME` in the
 target's `.env` (so logs, host metrics, and container metrics all label
-consistently). The `environment` label is optional but very useful once
-you have more than one environment.
+consistently). `app` / `deployment` scope the host to the application and
+deployment it belongs to, so host and container dashboards can filter by
+deployment (set them when a host is dedicated to one deployment; omit them
+on hosts genuinely shared by several). The `environment` label distinguishes
+prod / uat / dev within a deployment.
+
+Log streams from these hosts carry `host` / `container` automatically; to get
+`app` / `deployment` on logs too, set them as static labels in the target's
+Promtail config (or via Alloy once the host is migrated). Metrics get them
+from the target JSON above regardless.
 
 Prometheus hot-reloads within 30 seconds. Verify at
 `http://<monitor>:9090/targets` — the `node` and `cadvisor` jobs each show

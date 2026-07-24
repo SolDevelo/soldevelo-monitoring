@@ -6,6 +6,29 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`app` and `deployment` labels on every scrape target**, establishing a
+  three-level identity: `app` (the application) → `deployment` (a specific
+  deployment of it, e.g. `sdd`, `ilo`) → `service` (component within the app).
+  This lets one monitoring instance hold multiple applications *and* multiple
+  deployments of the same application without series colliding or dashboards
+  conflating them. A series is now unique on
+  (`app`, `deployment`, `service`, `instance`). Documented as the label
+  contract in `docs/metrics.md`; all setup guides and the README updated.
+
+### Changed
+- CFP Classifier (`deployment: sdd`) targets migrated to the taxonomy:
+  `service` values dropped the redundant `cfp-classifier-` prefix (now
+  `management`, `scraper-N`, `classifier-N`, `postgres`) and gained
+  `app: cfp-classifier` + `deployment: sdd`. Target JSON hot-reloads — no
+  stack restart. Alert rules unchanged (already label-generic); dashboards
+  auto-discover the new `service` values via their existing `$service` picker.
+
+### Notes
+- Log streams still carry only `host` / `container`; `app` / `deployment` on
+  logs land when a target's log shipper is updated (static Promtail labels, or
+  Alloy on migration). Metrics carry the full label set today.
+
 ## [0.3.0] — 2026-07-07
 
 Preparation release for the OpenLMIS Malawi rollout (second adopter).

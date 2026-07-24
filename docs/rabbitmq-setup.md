@@ -55,12 +55,14 @@ ports (9100, 9180). It exposes internal state and shouldn't be public.
 Drop a JSON file in `prometheus/targets/rabbitmq/`. Same file_sd format as
 Java / Python:
 
-`prometheus/targets/rabbitmq/cfp-classifier.json`:
+`prometheus/targets/rabbitmq/cfp.json`:
 ```json
 [
   {
     "targets": ["host.docker.internal:15692"],
     "labels": {
+      "app": "cfp-classifier",
+      "deployment": "sdd",
       "host": "cfp-classifier",
       "environment": "production"
     }
@@ -68,9 +70,10 @@ Java / Python:
 ]
 ```
 
-The `host` label ties the RabbitMQ instance to a broader target host (same
-convention as node-exporter / cAdvisor). No `service` label is needed —
-RabbitMQ itself is the service.
+`app` / `deployment` tie this broker to its application and deployment (so a
+second deployment's RabbitMQ stays separate). The `host` label ties it to a
+broader target host (same convention as node-exporter / cAdvisor). No
+`service` label is needed — RabbitMQ itself is the service.
 
 Prometheus hot-reloads within 30 seconds. Verify at
 `http://<monitor>:9090/targets` — `rabbitmq` job should be `UP`.

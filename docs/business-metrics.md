@@ -43,7 +43,9 @@ metric (see `docs/metrics.md`):
 
 | Label | Example | Notes |
 |---|---|---|
-| `service` | `cfp-scraper` | Short stable service slug. |
+| `app` | `cfp-classifier` | The application. Attached by the Prometheus scrape config, not app code. |
+| `deployment` | `sdd` | The deployment of that app (`sdd`, `ilo`, …). Attached by the scrape config. |
+| `service` | `scraper-1` | Short stable component slug (no app prefix). |
 | `host` | `cfp-classifier-prod` | Host slug (not IP). Usually attached by the Prometheus scrape config. |
 | `environment` | `production` | `production` / `staging` / `dev`. |
 

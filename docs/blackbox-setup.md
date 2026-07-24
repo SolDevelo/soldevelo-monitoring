@@ -16,6 +16,8 @@ expiry. Configure by dropping JSON files in `prometheus/targets/blackbox/`.
       "https://reporting.example.mw"
     ],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "environment": "production"
     }
   },
@@ -25,6 +27,8 @@ expiry. Configure by dropping JSON files in `prometheus/targets/blackbox/`.
       "https://uat.openlmis.example.mw/api/health"
     ],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "environment": "uat"
     }
   }
@@ -33,7 +37,10 @@ expiry. Configure by dropping JSON files in `prometheus/targets/blackbox/`.
 
 Each entry's `labels` apply to all URLs in that entry's `targets` list.
 Multiple entries let you tag different URLs with different labels. The
-`instance` label on the resulting metrics is set to the URL itself.
+`instance` label on the resulting metrics is set to the URL itself. Tag
+probes with the `app` / `deployment` they belong to so probe results line up
+with that deployment's other metrics — e.g. probing the `ilo` deployment's
+public endpoints would use `app: cfp-classifier`, `deployment: ilo`.
 
 Prometheus hot-reloads within 30 seconds. Verify at
 `http://<monitor>:9090/targets` — the `blackbox_http` job lists every URL,
@@ -66,6 +73,8 @@ It's picked up by the scrape config's relabel rules:
   {
     "targets": ["tcp://redis.example.com:6379"],
     "labels": {
+      "app": "openlmis",
+      "deployment": "malawi",
       "environment": "production",
       "module": "tcp_connect"
     }

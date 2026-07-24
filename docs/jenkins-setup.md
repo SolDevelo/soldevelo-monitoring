@@ -57,12 +57,19 @@ Drop a JSON file in `prometheus/targets/jenkins/`:
   {
     "targets": ["jenkins.example.com:8080"],
     "labels": {
+      "app": "jenkins",
+      "deployment": "malawi",
       "host": "malawi-jenkins",
       "environment": "production"
     }
   }
 ]
 ```
+
+For standalone infrastructure like Jenkins that isn't part of a monitored
+application, `app` / `deployment` name the system itself (here `app: jenkins`,
+`deployment: malawi`) rather than a product deployment — the point is only
+that every target carries the pair so nothing lands unlabelled.
 
 Prometheus hot-reloads within 30 seconds. Verify at
 `http://<monitor>:9090/targets` — `jenkins` job should show `UP`.

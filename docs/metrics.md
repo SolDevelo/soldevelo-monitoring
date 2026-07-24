@@ -25,20 +25,33 @@ Names follow [Prometheus naming conventions][prom-naming] and align with
 [prom-naming]: https://prometheus.io/docs/practices/naming/
 [otel-conv]: https://opentelemetry.io/docs/specs/semconv/
 
-### Required labels on application-exposed metrics
+### Required labels on every target / series
 
-Every metric a project exposes from its own code (Micrometer, prom-client,
-etc.) must carry these labels:
+Every metric — whether a project exposes it from its own code (Micrometer,
+prom-client, etc.) or it comes from an exporter — must carry these labels:
 
-| Label         | Example                | Meaning                                                |
-| ------------- | ---------------------- | ------------------------------------------------------ |
-| `service`     | `cfp-classifier-api`   | Short, stable slug for the deployed service.           |
-| `host`        | `cfp-classifier-prod`  | The host slug (not IP/DNS). Matches `TARGET_NAME`.     |
-| `environment` | `production`           | One of `production`, `staging`, `dev`.                 |
+| Label         | Example                | Meaning                                                            |
+| ------------- | ---------------------- | ------------------------------------------------------------------ |
+| `app`         | `cfp-classifier`       | The application / product. Groups all of its services across every deployment. |
+| `deployment`  | `sdd`                  | A specific deployment of that app. Distinguishes multiple deployments of the *same* app (e.g. `sdd` on docker-compose, `ilo` on EKS). |
+| `service`     | `management`           | Short, stable slug for the component *within* the app (`management`, `scraper-1`, `classifier`, `postgres`, …). No app prefix — `app` / `deployment` already carry that. |
+| `host`        | `cfp-classifier`       | The host / node slug (not IP/DNS). Matches `TARGET_NAME`.          |
+| `environment` | `production`           | One of `production`, `staging`, `dev`.                             |
 
-These can be supplied by the application or attached as `external_labels` /
-relabeling on the Prometheus side — whichever is more practical for the
-project. The dashboards expect them present either way.
+A time series is uniquely identified by (`app`, `deployment`, `service`,
+`instance`). That tuple is what lets a single monitoring instance hold
+**multiple applications** and **multiple deployments of the same application**
+side by side without series colliding or dashboards conflating them.
+
+`app` and `deployment` are **always attached on the Prometheus side** (the
+target JSON `labels`, or `external_labels` / relabel from a pushing agent),
+never by the app — the same image runs in every deployment, so it cannot know
+which deployment it is. `service` / `environment` may *also* be set app-side
+(Micrometer common tags), but the target label wins: with the default
+`honor_labels: false`, a same-named label the app emits is preserved as
+`exported_service` / `exported_environment` and the target's value takes
+`service` / `environment`. Keep the two consistent to avoid confusion, or drop
+the app-side tags and let the target be authoritative.
 
 ### Reserved labels (don't set in app code)
 
@@ -294,12 +307,20 @@ probe are listed in `.env` (`BLACKBOX_PROBE_TARGETS`).
 Loki streams aren't "metrics," but their labels follow the same conventions
 because log-derived rules and dashboards depend on them.
 
-| Label       | Set by                 | Example                          |
-| ----------- | ---------------------- | -------------------------------- |
-| `host`      | Promtail relabel       | `cfp-classifier-prod`            |
-| `container` | Promtail (docker_sd)   | `classifier-api`                 |
-| `stream`    | Promtail (docker_sd)   | `stdout` / `stderr`              |
-| `job`       | Promtail scrape config | `docker` / `varlogs`             |
+| Label        | Set by                    | Example                          |
+| ------------ | ------------------------- | -------------------------------- |
+| `app`        | Promtail / Alloy relabel  | `cfp-classifier`                 |
+| `deployment` | Promtail / Alloy relabel  | `sdd`                            |
+| `host`       | Promtail relabel          | `cfp-classifier-prod`            |
+| `container`  | Promtail (docker_sd)      | `classifier-api`                 |
+| `stream`     | Promtail (docker_sd)      | `stdout` / `stderr`              |
+| `job`        | Promtail scrape config    | `docker` / `varlogs`             |
+
+`app` / `deployment` on log streams mirror the metric labels so logs and
+metrics for the same deployment line up in Grafana. They're attached wherever
+the log shipper is configured (a static relabel in Promtail, or Alloy's
+`loki.process`); until a target's shipper is updated its streams may carry
+only `host` / `container`.
 
 Application logs SHOULD be emitted as **JSON, one object per line**, with at
 minimum these fields:
@@ -341,9 +362,11 @@ Exposed on `/actuator/prometheus` once the application enables
 `spring-boot-starter-actuator` + `micrometer-registry-prometheus`. Setup
 walkthrough: [`docs/java-app-setup.md`](java-app-setup.md).
 
-Required app-side labels per the conventions above (`service`, `host`,
-`environment`) — these can be supplied by Micrometer common tags or attached
-on the Prometheus scrape side via the scrape job's labels.
+Required labels per the conventions above (`app`, `deployment`, `service`,
+`host`, `environment`). `app` / `deployment` are attached on the scrape side
+via the target JSON; `service` / `environment` may be supplied by Micrometer
+common tags or on the scrape side (the target label wins — see the override
+note in *Required labels* above).
 
 ### `jvm_memory_used_bytes`
 
@@ -419,16 +442,16 @@ CFP Classifier and an "RFP scraped" on RFPMonitor are not the same thing.
 What IS standardised:
 
 - **Naming conventions** (same as above — `snake_case`, unit suffix, `_total`).
-- **Required labels** (`service`, `host`, `environment` — see above).
+- **Required labels** (`app`, `deployment`, `service`, `host`, `environment` — see above).
 - **Documentation discipline** — every business metric a project emits gets
   an entry in *that project's* `monitoring/metrics.md`, with the same
   Means / Does NOT mean structure.
 
 Examples (illustrative, not prescriptive):
 
-- `cfp_documents_classified_total` — counter, labels `service`, `host`, `environment`, `classifier_version`, `result`.
-- `cfp_scrape_bytes_total` — counter, labels `service`, `host`, `environment`, `source`.
-- `cfp_queue_depth` — gauge, labels `service`, `host`, `environment`, `queue`.
+- `cfp_documents_classified_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `classifier_version`, `result`.
+- `cfp_scrape_bytes_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `source`.
+- `cfp_queue_depth` — gauge, labels `app`, `deployment`, `service`, `host`, `environment`, `queue`.
 
 A V3 cookbook will collect these patterns across projects and pull common
 shapes back into this catalog.

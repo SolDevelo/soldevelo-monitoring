@@ -97,13 +97,15 @@ services:
 Prometheus picks up Python apps from JSON files in
 `prometheus/targets/python/*.json`. Format matches Java:
 
-`prometheus/targets/python/cfp-classifier.json`:
+`prometheus/targets/python/cfp.json`:
 ```json
 [
   {
-    "targets": ["host.docker.internal:8080"],
+    "targets": ["host.docker.internal:9291"],
     "labels": {
-      "service": "cfp-scraper",
+      "app": "cfp-classifier",
+      "deployment": "sdd",
+      "service": "classifier-1",
       "host": "cfp-classifier",
       "environment": "production"
     }
@@ -117,8 +119,9 @@ to the labels.
 
 **Labels belong on the scrape target, not app-side.** `prometheus_client`
 has no Micrometer-style "common tags" concept — trying to attach
-`service`/`host`/`environment` to every metric in Python code creates
-conflicts with the scrape-time labels. Let Prometheus do it.
+`app`/`deployment`/`service`/`host`/`environment` to every metric in Python
+code creates conflicts with the scrape-time labels. Let Prometheus do it; the
+target JSON is the single source of truth for all five labels.
 
 ## 5. Verify
 

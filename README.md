@@ -182,14 +182,18 @@ Full walkthrough: [`docs/java-app-setup.md`](docs/java-app-setup.md).
 Short version:
 1. Add `spring-boot-starter-actuator` and `micrometer-registry-prometheus`
    to the app.
-2. Set `management.endpoints.web.exposure.include=health,prometheus` plus
-   `management.metrics.tags.service=<your-service-name>`.
+2. Set `management.endpoints.web.exposure.include=health,prometheus`
+   (optionally `management.metrics.tags.service=<name>` — the target label
+   in step 3 overrides it).
 3. Drop a JSON file in `prometheus/targets/java/`:
    ```json
    [
-     {"targets": ["host:port"], "labels": {"service":"<name>", "host":"<host>", "environment":"production"}}
+     {"targets": ["host:port"], "labels": {"app":"<app>", "deployment":"<deployment>", "service":"<name>", "host":"<host>", "environment":"production"}}
    ]
    ```
+   `app` groups every service of one application; `deployment` distinguishes
+   multiple deployments of that same application (e.g. `sdd`, `ilo`). See the
+   label contract in [`docs/metrics.md`](docs/metrics.md).
 4. Wait 30 s. Prometheus hot-reloads target lists; no restart needed.
 
 For 10+ microservices (OpenLMIS Malawi case), one entry per service in a
@@ -226,7 +230,7 @@ MONITORING_SERVER_HOST=host.docker.internal
 On the **monitoring host**, use `host.docker.internal` as the address in
 target JSON files:
 ```json
-[{"targets": ["host.docker.internal:9100"], "labels": {"host": "<host-slug>"}}]
+[{"targets": ["host.docker.internal:9100"], "labels": {"app": "<app>", "deployment": "<deployment>", "host": "<host-slug>"}}]
 ```
 
 Port collision: if Grafana's `3000` clashes with something else (e.g.
@@ -262,6 +266,13 @@ every 30 seconds.
 
 ## Conventions
 
+- **Labeling** — every target carries `app` / `deployment` / `service` /
+  `host` / `environment`. `app` names the application, `deployment`
+  distinguishes multiple deployments of that same application (e.g. `sdd`,
+  `ilo`), and `service` is the component within it (no app prefix). A series
+  is unique on (`app`, `deployment`, `service`, `instance`), which is what
+  lets one instance monitor several apps and several deployments of one app
+  without collisions. Full contract: [`docs/metrics.md`](docs/metrics.md).
 - **Metric catalog** — [`docs/metrics.md`](docs/metrics.md) is the canonical
   list of metrics this package relies on, with required labels and the
   "what it does NOT mean" pattern for heading off semantic drift between

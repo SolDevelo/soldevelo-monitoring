@@ -36,18 +36,20 @@ In `application.properties` (or `application.yml`):
 # Expose the prometheus endpoint (and health, which Blackbox probes use).
 management.endpoints.web.exposure.include=health,prometheus
 
-# Apply package-standard labels to every metric (see docs/metrics.md).
-management.metrics.tags.service=cfp-scraper
+# Optional app-side common tags. The Prometheus target labels (section 4) are
+# authoritative and override these (default honor_labels: false → an app-side
+# `service` is preserved as `exported_service` and the target's value wins).
+management.metrics.tags.service=scraper-1
 management.metrics.tags.environment=production
 ```
 
-The `service` value is what the JVM dashboard's "Service" picker resolves
-against. Keep it identical to the `service` label on the Prometheus target
-(section 4) — if they disagree, the dashboard variable finds nothing.
-
-`environment` should be `production` / `staging` / `dev`. If the same
-artifact runs in multiple environments, set it via
-`MANAGEMENT_METRICS_TAGS_ENVIRONMENT=staging`.
+The `app`, `deployment`, `service`, `host`, and `environment` labels all come
+from the **Prometheus target** (section 4) — that's the source of truth. The
+app cannot set `app` / `deployment` (the same artifact runs in every
+deployment, so it can't know which one it is), and any `service` /
+`environment` it does set is overridden by the target. Setting the app-side
+tags is therefore optional; do it only for consistency or if the app is also
+scraped somewhere without target labels. Full contract: `docs/metrics.md`.
 
 ## 3. Publish the management port
 
@@ -67,23 +69,27 @@ Prometheus picks up Java apps from JSON files in
 `prometheus/targets/java/*.json`. Drop one file per deployment (or per
 service) and Prometheus hot-reloads every 30s.
 
-**Single project, two apps:**
+**Single app, two services:**
 
-`prometheus/targets/java/cfp-classifier.json`:
+`prometheus/targets/java/cfp.json`:
 ```json
 [
   {
-    "targets": ["host.docker.internal:8080"],
+    "targets": ["host.docker.internal:9190"],
     "labels": {
-      "service": "cfp-scraper",
+      "app": "cfp-classifier",
+      "deployment": "sdd",
+      "service": "management",
       "host": "cfp-classifier",
       "environment": "production"
     }
   },
   {
-    "targets": ["host.docker.internal:8081"],
+    "targets": ["host.docker.internal:9191"],
     "labels": {
-      "service": "cfp-management",
+      "app": "cfp-classifier",
+      "deployment": "sdd",
+      "service": "scraper-1",
       "host": "cfp-classifier",
       "environment": "production"
     }
@@ -91,16 +97,21 @@ service) and Prometheus hot-reloads every 30s.
 ]
 ```
 
+`service` is the bare component name (`management`, `scraper-1`) — `app` and
+`deployment` carry the rest, so the same picker works whether you're looking
+at the `sdd` deployment or another deployment of the same app (`deployment:
+"ilo"`).
+
 **Microservices deployment:**
 
 `prometheus/targets/java/openlmis-malawi.json`:
 ```json
 [
-  {"targets":["malawi-prod:8080"], "labels":{"service":"requisition",     "host":"malawi-prod","environment":"production"}},
-  {"targets":["malawi-prod:8081"], "labels":{"service":"fulfillment",     "host":"malawi-prod","environment":"production"}},
-  {"targets":["malawi-prod:8082"], "labels":{"service":"stockmanagement", "host":"malawi-prod","environment":"production"}},
-  {"targets":["malawi-prod:8083"], "labels":{"service":"referencedata",   "host":"malawi-prod","environment":"production"}},
-  {"targets":["malawi-prod:8084"], "labels":{"service":"auth",            "host":"malawi-prod","environment":"production"}}
+  {"targets":["malawi-prod:8080"], "labels":{"app":"openlmis","deployment":"malawi","service":"requisition",     "host":"malawi-prod","environment":"production"}},
+  {"targets":["malawi-prod:8081"], "labels":{"app":"openlmis","deployment":"malawi","service":"fulfillment",     "host":"malawi-prod","environment":"production"}},
+  {"targets":["malawi-prod:8082"], "labels":{"app":"openlmis","deployment":"malawi","service":"stockmanagement", "host":"malawi-prod","environment":"production"}},
+  {"targets":["malawi-prod:8083"], "labels":{"app":"openlmis","deployment":"malawi","service":"referencedata",   "host":"malawi-prod","environment":"production"}},
+  {"targets":["malawi-prod:8084"], "labels":{"app":"openlmis","deployment":"malawi","service":"auth",            "host":"malawi-prod","environment":"production"}}
 ]
 ```
 
@@ -109,7 +120,8 @@ service) and Prometheus hot-reloads every 30s.
 labels. The scrape config picks it up via relabel rules.
 
 Verify at `http://<monitor>:9090/targets`: the `java` job lists every
-target with its `service` / `host` / `environment` labels.
+target with its `app` / `deployment` / `service` / `host` / `environment`
+labels.
 
 ## 5. Align `-Xmx` with the container memory limit
 
@@ -150,8 +162,12 @@ From the monitoring host:
   don't expose it publicly. Alternatives: basic-auth on actuator with
   `basic_auth` in the Prometheus scrape config, or `permitAll()` for
   `/actuator/**` in `SecurityConfig` (internal-only networks only).
-- **Target `UP` but dashboard empty** — the Micrometer `service` tag and
-  the Prometheus target `service` label disagree. Make them identical.
+- **Target `UP` but dashboard empty** — the target is missing the `service`
+  label the dashboard's picker resolves against, or you've selected an
+  `app` / `deployment` that has no series. Confirm the target JSON carries
+  `app` / `deployment` / `service` (the target labels are authoritative;
+  an app-side Micrometer `service` tag lands as `exported_service` and does
+  not feed the picker).
 - **Scrape from Prometheus container fails but curl from your laptop
   works** — the app binds to `localhost` only. Set
   `management.server.address=0.0.0.0` (required whenever you've set

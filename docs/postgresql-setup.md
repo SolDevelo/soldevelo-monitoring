@@ -50,18 +50,26 @@ usually a connection-string typo or missing `pg_monitor` grant.
 
 Drop a JSON file in `prometheus/targets/postgresql/`:
 
-`prometheus/targets/postgresql/cfp-classifier.json`:
+`prometheus/targets/postgresql/cfp.json`:
 ```json
 [
   {
     "targets": ["host.docker.internal:9187"],
     "labels": {
+      "app": "cfp-classifier",
+      "deployment": "sdd",
+      "service": "postgres",
       "host": "cfp-classifier",
       "environment": "production"
     }
   }
 ]
 ```
+
+`app` / `deployment` tie this exporter to its application and deployment (so a
+second deployment's Postgres stays separate); `service` names the component
+(`postgres`). `datname` still differentiates individual databases within the
+instance.
 
 Prometheus hot-reloads within 30 seconds. Verify at
 `http://<monitor>:9090/targets` — `postgresql` job should be `UP`.
