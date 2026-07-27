@@ -3,7 +3,7 @@
   "title": "JVM application",
   "tags": ["soldevelo-monitoring", "java", "jvm"],
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "timezone": "browser",
   "time": { "from": "now-3h", "to": "now" },
   "refresh": "30s",

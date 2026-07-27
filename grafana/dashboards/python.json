@@ -3,7 +3,7 @@
   "title": "Python application",
   "tags": ["soldevelo-monitoring", "python"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "timezone": "browser",
   "time": { "from": "now-3h", "to": "now" },
   "refresh": "30s",
