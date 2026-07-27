@@ -14,7 +14,7 @@
         "label": "App",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(process_resident_memory_bytes, app)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(python_info, app)", "refId": "vars" },
         "refresh": 2,
         "includeAll": false,
         "multi": false
@@ -24,7 +24,7 @@
         "label": "Deployment",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(process_resident_memory_bytes{app=\"$app\"}, deployment)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(python_info{app=\"$app\"}, deployment)", "refId": "vars" },
         "refresh": 2,
         "includeAll": false,
         "multi": false
@@ -34,7 +34,7 @@
         "label": "Service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(process_resident_memory_bytes{app=\"$app\", deployment=\"$deployment\"}, service)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(python_info{app=\"$app\", deployment=\"$deployment\"}, service)", "refId": "vars" },
         "refresh": 2,
         "includeAll": false,
         "multi": false
