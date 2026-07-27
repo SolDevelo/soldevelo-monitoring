@@ -10,11 +10,31 @@
   "templating": {
     "list": [
       {
+        "name": "app",
+        "label": "App",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(jvm_memory_used_bytes, app)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "deployment",
+        "label": "Deployment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(jvm_memory_used_bytes{app=\"$app\"}, deployment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
         "name": "service",
         "label": "Service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(jvm_memory_used_bytes, service)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(jvm_memory_used_bytes{app=\"$app\", deployment=\"$deployment\"}, service)", "refId": "vars" },
         "refresh": 2,
         "includeAll": false,
         "multi": false
@@ -58,7 +78,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{service=\"$service\",area=\"heap\"}) / sum(jvm_memory_max_bytes{service=\"$service\",area=\"heap\"} > 0)",
+          "expr": "sum(jvm_memory_used_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"}) / sum(jvm_memory_max_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"} > 0)",
           "refId": "A"
         }
       ]
@@ -88,7 +108,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(rate(jvm_gc_pause_seconds_sum{service=\"$service\"}[5m]))",
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "refId": "A"
         }
       ]
@@ -101,7 +121,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "jvm_threads_live_threads{service=\"$service\"}", "refId": "A" }
+        { "expr": "jvm_threads_live_threads{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}", "refId": "A" }
       ]
     },
     {
@@ -115,7 +135,7 @@
       },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "process_cpu_usage{service=\"$service\"}", "refId": "A" }
+        { "expr": "process_cpu_usage{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}", "refId": "A" }
       ]
     },
     {
@@ -133,12 +153,12 @@
       },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{service=\"$service\",area=\"heap\"})",
+          "expr": "sum(jvm_memory_used_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"})",
           "legendFormat": "used",
           "refId": "A"
         },
         {
-          "expr": "sum(jvm_memory_max_bytes{service=\"$service\",area=\"heap\"} > 0)",
+          "expr": "sum(jvm_memory_max_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"} > 0)",
           "legendFormat": "max",
           "refId": "B"
         }
@@ -160,7 +180,7 @@
       },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{service=\"$service\",area=\"heap\"}) / sum(jvm_memory_max_bytes{service=\"$service\",area=\"heap\"} > 0)",
+          "expr": "sum(jvm_memory_used_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"}) / sum(jvm_memory_max_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",area=\"heap\"} > 0)",
           "legendFormat": "heap %",
           "refId": "A"
         }
@@ -176,7 +196,7 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "sum by (action, cause) (rate(jvm_gc_pause_seconds_sum{service=\"$service\"}[5m]))",
+          "expr": "sum by (action, cause) (rate(jvm_gc_pause_seconds_sum{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "legendFormat": "{{action}} ({{cause}})",
           "refId": "A"
         }
@@ -191,7 +211,7 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "sum by (action) (rate(jvm_gc_pause_seconds_sum{service=\"$service\"}[5m])) / sum by (action) (rate(jvm_gc_pause_seconds_count{service=\"$service\"}[5m]))",
+          "expr": "sum by (action) (rate(jvm_gc_pause_seconds_sum{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])) / sum by (action) (rate(jvm_gc_pause_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "legendFormat": "{{action}}",
           "refId": "A"
         }
@@ -212,7 +232,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{service=\"$service\"}",
+          "expr": "jvm_memory_used_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}",
           "legendFormat": "{{area}} / {{id}}",
           "refId": "A"
         }
@@ -231,7 +251,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_states_threads{service=\"$service\"}",
+          "expr": "jvm_threads_states_threads{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}",
           "legendFormat": "{{state}}",
           "refId": "A"
         }
@@ -247,7 +267,7 @@
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
         {
-          "expr": "sum by (outcome) (rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "expr": "sum by (outcome) (rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "legendFormat": "{{outcome}}",
           "refId": "A"
         }
@@ -275,12 +295,12 @@
       },
       "targets": [
         {
-          "expr": "100 * sum(rate(http_server_requests_seconds_count{service=\"$service\",outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\",outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "legendFormat": "5xx",
           "refId": "A"
         },
         {
-          "expr": "100 * sum(rate(http_server_requests_seconds_count{service=\"$service\",outcome=\"CLIENT_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\",outcome=\"CLIENT_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
           "legendFormat": "4xx",
           "refId": "B"
         }
@@ -296,17 +316,17 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -321,17 +341,17 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (pool) (hikaricp_connections_active{service=\"$service\"})",
+          "expr": "sum by (pool) (hikaricp_connections_active{app=\"$app\",deployment=\"$deployment\",service=\"$service\"})",
           "legendFormat": "{{pool}} active",
           "refId": "A"
         },
         {
-          "expr": "sum by (pool) (hikaricp_connections_idle{service=\"$service\"})",
+          "expr": "sum by (pool) (hikaricp_connections_idle{app=\"$app\",deployment=\"$deployment\",service=\"$service\"})",
           "legendFormat": "{{pool}} idle",
           "refId": "B"
         },
         {
-          "expr": "max by (pool) (hikaricp_connections_max{service=\"$service\"})",
+          "expr": "max by (pool) (hikaricp_connections_max{app=\"$app\",deployment=\"$deployment\",service=\"$service\"})",
           "legendFormat": "{{pool}} max",
           "refId": "C"
         }
@@ -357,7 +377,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (pool) (hikaricp_connections_pending{service=\"$service\"})",
+          "expr": "sum by (pool) (hikaricp_connections_pending{app=\"$app\",deployment=\"$deployment\",service=\"$service\"})",
           "legendFormat": "{{pool}} pending",
           "refId": "A"
         }
