@@ -40,6 +40,17 @@
         "multi": false
       },
       {
+        "name": "instance",
+        "label": "Instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(python_info{app=\"$app\", deployment=\"$deployment\", service=~\"$service\"}, instance)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+"
+      },
+      {
         "name": "container",
         "label": "Container(s) for logs",
         "description": "Containers whose name matches the selected service. Adjust if your naming differs.",
@@ -63,7 +74,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "process_resident_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}", "refId": "A" }
+        { "expr": "process_resident_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}", "refId": "A" }
       ]
     },
     {
@@ -76,7 +87,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "rate(process_cpu_seconds_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])", "refId": "A" }
+        { "expr": "rate(process_cpu_seconds_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])", "refId": "A" }
       ]
     },
     {
@@ -88,7 +99,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "process_open_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}", "refId": "A" }
+        { "expr": "process_open_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}", "refId": "A" }
       ]
     },
     {
@@ -115,7 +126,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "process_open_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\"} / process_max_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}",
+          "expr": "process_open_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"} / process_max_fds{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}",
           "refId": "A"
         }
       ]
@@ -135,12 +146,12 @@
       },
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}",
+          "expr": "process_resident_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}",
           "legendFormat": "resident (RSS)",
           "refId": "A"
         },
         {
-          "expr": "process_virtual_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}",
+          "expr": "process_virtual_memory_bytes{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}",
           "legendFormat": "virtual",
           "refId": "B"
         }
@@ -155,7 +166,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])",
+          "expr": "rate(process_cpu_seconds_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])",
           "legendFormat": "cores",
           "refId": "A"
         }
@@ -171,7 +182,7 @@
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
         {
-          "expr": "sum by (status, method) (rate(http_requests_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m]))",
+          "expr": "sum by (status, method) (rate(http_requests_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m]))",
           "legendFormat": "{{method}} {{status}}",
           "refId": "A"
         }
@@ -187,17 +198,17 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -212,7 +223,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(python_gc_collections_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])",
+          "expr": "rate(python_gc_collections_total{app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])",
           "legendFormat": "gen {{generation}}",
           "refId": "A"
         }
@@ -227,7 +238,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate({__name__=~\"^${service}_.*_total\", app=\"$app\",deployment=\"$deployment\",service=\"$service\"}[5m])",
+          "expr": "rate({__name__=~\"^${service}_.*_total\", app=\"$app\",deployment=\"$deployment\",service=\"$service\",instance=~\"$instance\"}[5m])",
           "legendFormat": "{{__name__}}",
           "refId": "A"
         }
