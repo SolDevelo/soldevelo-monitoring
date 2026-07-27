@@ -259,6 +259,13 @@ every 30 seconds.
   bind-mounted file changes.
 - **After target-file edits** (`prometheus/targets/<component>/*.json`) —
   Prometheus hot-reloads file_sd within 30 s. No render, no restart.
+- **After dashboard edits** (`grafana/dashboards/*.json`) — Grafana
+  hot-reloads within 30 s, no restart. **Permissions caveat:** on
+  umask-hardened hosts (CIS AMIs, `umask 0027`) a `git pull` writes the file
+  `640`, which the Grafana container user (uid 472) can't read — provisioning
+  then logs `permission denied` and the dashboard silently keeps its old
+  version. Fix after pulling: `chmod -R a+rX grafana/dashboards` (or re-run
+  `bin/render-configs.sh`, which applies the same read bits).
 - **Resetting state** — `docker compose down -v` wipes Prometheus, Loki, and
   Grafana data volumes. Keep a backup before doing this in anger.
 - **Public Grafana** — the Caddy service in `stack/` does TLS + reverse
