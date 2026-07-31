@@ -59,8 +59,8 @@ config_dirs=(
   "${REPO_ROOT}/blackbox"
   "${REPO_ROOT}/grafana"
   "${REPO_ROOT}/caddy"
-  "${REPO_ROOT}/agents/promtail"
+  "${REPO_ROOT}/agents-alloy"
 )
 for d in "${config_dirs[@]}"; do
-  [[ -d "${d}" ]] && chmod -R a+rX "${d}"
+  if [[ -d "${d}" ]]; then chmod -R a+rX "${d}"; fi
 done
