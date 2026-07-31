@@ -282,6 +282,11 @@ docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreat
 - **`1.0.0`** — first stable release. Backward compatibility for `.env`
   schema, dashboard UIDs, and file layout will hold within the `1.x` line.
 
+The git tag `vX.Y.Z` is the source of truth for the version. The `**Version:**`
+badge above and the `CHANGELOG.md` heading are stamped from it by
+`bin/release.sh` — don't hand-edit them (`bin/validate.sh` fails if they drift).
+See [`docs/releasing.md`](docs/releasing.md).
+
 The roadmap markers in `IDEAS.md` (V1 / V2 / V3) describe planned *capability
 stages*, not version numbers. They're internal planning vocabulary; what
 goes on a git tag is always semver.
