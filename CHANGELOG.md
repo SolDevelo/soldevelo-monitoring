@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-31
+
 Push-based collection built on Grafana Alloy, with a label taxonomy that lets
 one monitoring instance serve many applications and many deployments of the
 same application. Proven on two live deployments (docker + AWS EKS).
@@ -337,7 +339,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.0...v0.1.1
