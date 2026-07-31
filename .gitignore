@@ -7,9 +7,12 @@
 /alertmanager/alertmanager.yml
 /caddy/Caddyfile
 
-# Per-deployment blackbox probe URLs (committed per project as part of the
-# overlay, not in the base package).
+# Per-project overlay artifacts — committed in the project's own overlay, not
+# in the base package. The dirs ship (via .gitkeep) as documented drop-zones;
+# their contents stay out of the base.
 /prometheus/targets/blackbox/*.json
+/grafana/dashboards/overlay/*.json
+!**/.gitkeep
 
 # Local editor / OS junk
 .DS_Store
