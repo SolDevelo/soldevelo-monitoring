@@ -1,0 +1,45 @@
+name: soldevelo-monitoring-agents
+
+# One Alloy agent per host — supersedes the agents/ bundle. See README.md.
+
+services:
+  alloy:
+    image: grafana/alloy:${ALLOY_VERSION}
+    restart: unless-stopped
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy
+    environment:
+      APP: ${APP}
+      DEPLOYMENT: ${DEPLOYMENT}
+      TARGET_NAME: ${TARGET_NAME}
+      INGEST_METRICS_URL: ${INGEST_METRICS_URL}
+      INGEST_LOGS_URL: ${INGEST_LOGS_URL}
+      INGEST_TOKEN: ${INGEST_TOKEN}
+    privileged: true          # cAdvisor cgroup/device access
+    pid: host                 # unix exporter sees host processes
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro,z
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # unix (node) exporter
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      # cAdvisor
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - alloy-data:/var/lib/alloy
+    devices:
+      - /dev/kmsg
+    networks:
+      # join the app network to reach container IPs
+      - local-cfp-net
+
+volumes:
+  alloy-data:
+
+networks:
+  local-cfp-net:
+    external: true
