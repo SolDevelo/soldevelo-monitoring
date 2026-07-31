@@ -6,34 +6,33 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+Push-based collection built on Grafana Alloy, with a label taxonomy that lets
+one monitoring instance serve many applications and many deployments of the
+same application. Proven on two live deployments (docker + AWS EKS).
+
 ### Added
-- **Remote push ingest** — a deployment on another network / AWS account that
-  can't be scraped runs Grafana Alloy and pushes metrics + logs in. Prometheus
-  gains `--web.enable-remote-write-receiver`; Caddy exposes two bearer-gated
-  paths on `MONITORING_SITE` (`/ingest/prometheus/api/v1/write`,
-  `/ingest/loki/loki/api/v1/push`), keeping 9090 / 3100 off the public
-  internet. New `INGEST_TOKEN`; runbook in `docs/remote-push-setup.md`.
-- **`app` and `deployment` labels on every scrape target**, establishing a
-  three-level identity: `app` (the application) → `deployment` (a specific
-  deployment of it, e.g. `sdd`, `ilo`) → `service` (component within the app).
-  This lets one monitoring instance hold multiple applications *and* multiple
-  deployments of the same application without series colliding or dashboards
-  conflating them. A series is now unique on
-  (`app`, `deployment`, `service`, `instance`). Documented as the label
-  contract in `docs/metrics.md`; all setup guides and the README updated.
+- **Alloy push agents.** Each target host/cluster runs one Grafana Alloy agent
+  (`agents-alloy/` for docker, in-cluster for Kubernetes) that discovers its
+  workloads — docker compose `monitoring.*` labels or k8s `prometheus.io/*`
+  annotations — collects host + container + application metrics and all
+  container logs, and pushes them to the monitoring host. No target lists on the
+  monitor; targets need no inbound ports, only outbound HTTPS.
+- **Ingest endpoints.** Prometheus enables `--web.enable-remote-write-receiver`;
+  Caddy exposes bearer-gated `/ingest/prometheus/api/v1/write` and
+  `/ingest/loki/loki/api/v1/push` on `MONITORING_SITE` (9090 / 3100 stay off the
+  public internet). New `INGEST_TOKEN`. Runbooks: `docs/remote-push-setup.md`
+  (receiver), `agents-alloy/README.md` (agent).
+- **`app` / `deployment` / `service` / `host` / `instance` taxonomy** — a series
+  is unique on (`app`, `deployment`, `service`, `instance`), so multiple apps
+  and multiple deployments of one app never collide. Dashboards gain an
+  `app → deployment → service → instance` variable cascade; Alertmanager labels
+  every alert with its `deployment`. Contract in `docs/metrics.md`; all setup
+  guides and the README rewritten around the model.
 
 ### Changed
-- CFP Classifier (`deployment: sdd`) targets migrated to the taxonomy:
-  `service` values dropped the redundant `cfp-classifier-` prefix (now
-  `management`, `scraper-N`, `classifier-N`, `postgres`) and gained
-  `app: cfp-classifier` + `deployment: sdd`. Target JSON hot-reloads — no
-  stack restart. Alert rules unchanged (already label-generic); dashboards
-  auto-discover the new `service` values via their existing `$service` picker.
-
-### Notes
-- Log streams still carry only `host` / `container`; `app` / `deployment` on
-  logs land when a target's log shipper is updated (static Promtail labels, or
-  Alloy on migration). Metrics carry the full label set today.
+- The only Prometheus scrape jobs are Prometheus itself and the blackbox HTTP
+  probes; all app / host / container metrics arrive via remote_write. Alert
+  rules and dashboards are label-driven and model-agnostic.
 
 ## [0.3.0] — 2026-07-07
 

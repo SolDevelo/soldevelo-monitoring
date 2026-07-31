@@ -43,10 +43,10 @@ metric (see `docs/metrics.md`):
 
 | Label | Example | Notes |
 |---|---|---|
-| `app` | `cfp-classifier` | The application. Attached by the Prometheus scrape config, not app code. |
-| `deployment` | `sdd` | The deployment of that app (`sdd`, `ilo`, …). Attached by the scrape config. |
-| `service` | `scraper-1` | Short stable component slug (no app prefix). |
-| `host` | `cfp-classifier-prod` | Host slug (not IP). Usually attached by the Prometheus scrape config. |
+| `app` | `cfp-classifier` | The application. Attached by the Alloy agent, not app code. |
+| `deployment` | `sdd` | The deployment of that app (`sdd`, `ilo`, …). Attached by the agent. |
+| `service` | `scraper` | Short stable component slug (no app prefix). |
+| `host` | `cfp-classifier-prod` | Host slug (not IP). Attached by the agent (`TARGET_NAME`). |
 | `environment` | `production` | `production` / `staging` / `dev`. |
 
 Plus whatever dimensional labels the metric itself needs (e.g. `source`,

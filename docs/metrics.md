@@ -60,11 +60,10 @@ configs. Don't override them.
 
 | Label      | Set by                            | Notes                                |
 | ---------- | --------------------------------- | ------------------------------------ |
-| `instance` | Prometheus                        | `host:port` of the scrape target.    |
-| `job`      | Prometheus (scrape config)        | Scrape-job name.                     |
-| `monitor`  | `prometheus.yml` external_labels  | Which monitoring instance scraped.   |
-| `container`| Promtail / cAdvisor               | Docker container name.               |
-| `stream`   | Promtail                          | `stdout` / `stderr` for log lines.   |
+| `instance` | Alloy (scrape target)             | The replica (compose service / pod). |
+| `monitor`  | `prometheus.yml` external_labels  | Which monitoring instance received.  |
+| `container`| Alloy / cAdvisor                  | Docker container name.               |
+| `stream`   | Alloy                             | `stdout` / `stderr` for log lines.   |
 
 ### Adding to this catalog
 
@@ -84,8 +83,8 @@ silent semantic drift between projects gets headed off.
 
 ## Host metrics (node-exporter)
 
-Source: [`prom/node-exporter`][nx]. Exposed on port `9100` on every target
-host that runs `agents/docker-compose.yml`.
+Source: [`prom/node-exporter`][nx], embedded in the Alloy agent
+(`prometheus.exporter.unix`) on every target host.
 
 [nx]: https://github.com/prometheus/node_exporter
 
@@ -175,8 +174,8 @@ host that runs `agents/docker-compose.yml`.
 
 ## Container metrics (cAdvisor)
 
-Source: [`gcr.io/cadvisor/cadvisor`][cadv]. Exposed on port `9180` on every
-target host that runs `agents/docker-compose.yml`.
+Source: [`gcr.io/cadvisor/cadvisor`][cadv], embedded in the Alloy agent
+(`prometheus.exporter.cadvisor`) on every target host.
 
 [cadv]: https://github.com/google/cadvisor
 
@@ -254,8 +253,8 @@ target host that runs `agents/docker-compose.yml`.
 
 ## Probe metrics (Blackbox exporter)
 
-Source: [`prom/blackbox-exporter`][bb]. Runs on the monitoring host. URLs to
-probe are listed in `.env` (`BLACKBOX_PROBE_TARGETS`).
+Source: [`prom/blackbox-exporter`][bb]. Runs on the monitoring host. Probe
+URLs live in `prometheus/targets/blackbox/*.json` (see docs/blackbox-setup.md).
 
 [bb]: https://github.com/prometheus/blackbox_exporter
 
@@ -302,25 +301,21 @@ probe are listed in `.env` (`BLACKBOX_PROBE_TARGETS`).
 
 ---
 
-## Log labels (Loki / Promtail)
+## Log labels (Loki)
 
 Loki streams aren't "metrics," but their labels follow the same conventions
 because log-derived rules and dashboards depend on them.
 
-| Label        | Set by                    | Example                          |
-| ------------ | ------------------------- | -------------------------------- |
-| `app`        | Promtail / Alloy relabel  | `cfp-classifier`                 |
-| `deployment` | Promtail / Alloy relabel  | `sdd`                            |
-| `host`       | Promtail relabel          | `cfp-classifier-prod`            |
-| `container`  | Promtail (docker_sd)      | `classifier-api`                 |
-| `stream`     | Promtail (docker_sd)      | `stdout` / `stderr`              |
-| `job`        | Promtail scrape config    | `docker` / `varlogs`             |
+| Label        | Set by            | Example                          |
+| ------------ | ----------------- | -------------------------------- |
+| `app`        | Alloy relabel     | `cfp-classifier`                 |
+| `deployment` | Alloy relabel     | `sdd`                            |
+| `host`       | Alloy relabel     | `cfp-classifier-prod`            |
+| `service`    | Alloy relabel     | `scraper`                        |
+| `container`  | Alloy (docker SD) | `classifier-api`                 |
 
-`app` / `deployment` on log streams mirror the metric labels so logs and
-metrics for the same deployment line up in Grafana. They're attached wherever
-the log shipper is configured (a static relabel in Promtail, or Alloy's
-`loki.process`); until a target's shipper is updated its streams may carry
-only `host` / `container`.
+`app` / `deployment` / `service` on log streams mirror the metric labels so
+logs and metrics for the same deployment line up in Grafana.
 
 Application logs SHOULD be emitted as **JSON, one object per line**, with at
 minimum these fields:
@@ -336,7 +331,7 @@ minimum these fields:
 | `user_id`     | when applicable | (avoid PII; use opaque id)       |
 
 JSON log encoding is a project responsibility (e.g. logback-json for Spring
-Boot, `python-json-logger` for Python). Promtail does not transform plain
+Boot, `python-json-logger` for Python). The agent does not transform plain
 text into JSON — what your app emits is what queries will see.
 
 ---

@@ -1,15 +1,10 @@
-# Accepting remote pushes (metrics + logs)
+# Ingest endpoints (metrics + logs)
 
-The default model of this package is **pull** for metrics (Prometheus scrapes
-targets it can reach) and **push** for logs (Promtail → Loki). That works when
-the monitoring host shares a network with what it monitors.
-
-A deployment on a **different network or AWS account** (e.g. an app on EKS the
-monitor can't route to) can't be scraped. Instead, run a pushing agent —
-Grafana Alloy — *inside* that deployment and have it push metrics and logs out
-to this monitoring host over authenticated HTTPS. This doc covers the
-**receiver side** (the monitoring host). The agent side lives in the Alloy
-setup doc.
+Every target runs a Grafana Alloy agent that pushes metrics and logs to this
+monitoring host over authenticated HTTPS — works the same whether the target
+shares a network with the monitor or lives in a different AWS account. This doc
+covers the **receiver side** (the monitoring host); the agent side is
+`agents-alloy/` and [`host-setup.md`](host-setup.md).
 
 ## What's exposed
 

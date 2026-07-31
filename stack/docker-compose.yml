@@ -119,9 +119,7 @@ services:
     image: prom/node-exporter:${NODE_EXPORTER_VERSION}
     restart: unless-stopped
     # network_mode: host needed so netdev/netclass collectors see real host
-    # interfaces (not the container's own netns). Listens on :9101 to avoid
-    # colliding with the agents node-exporter (port 9100) when stack and
-    # agents share a Docker host during local testing.
+    # interfaces (not the container's own netns). Listens on :9101.
     network_mode: host
     pid: host
     command:

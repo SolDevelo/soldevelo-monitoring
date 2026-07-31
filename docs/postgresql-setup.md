@@ -1,140 +1,89 @@
 # Wiring PostgreSQL into soldevelo-monitoring
 
-PostgreSQL doesn't expose Prometheus metrics natively, so we run
-`postgres_exporter` as a sidecar. It connects to the DB with a limited-
-privilege user and translates `pg_stat_*` views into Prometheus metrics.
+PostgreSQL doesn't expose Prometheus metrics natively, so run `postgres_exporter`
+as a sidecar. It connects with a limited-privilege user and translates
+`pg_stat_*` views into Prometheus metrics.
 
 ## 1. Deploy the exporter
 
-Add to your project's docker-compose, next to your PostgreSQL service:
+Add to your project's docker-compose, next to PostgreSQL. It must be on the
+**same docker network** as the app so the Alloy agent can reach it:
 
 ```yaml
 postgres-exporter:
-  image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+  image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
   restart: unless-stopped
   environment:
     DATA_SOURCE_NAME: "postgresql://monitoring:${POSTGRES_MONITORING_PASSWORD}@postgres:5432/postgres?sslmode=disable"
-  ports:
-    - "9187:9187"
+  labels:
+    monitoring.scrape: "true"
+    monitoring.port: "9187"
+    monitoring.service: "postgres"
+  networks:
+    - local-cfp-net
   depends_on:
     - postgres
 ```
 
+`monitoring.path` defaults to `/metrics`. `app` / `deployment` / `host` come
+from the agent's env; `service=postgres`. `datname` differentiates individual
+databases within the instance.
+
 ## 2. Create the monitoring user
 
-Give the exporter a dedicated read-only user rather than reusing your app's
-DB credentials:
+A dedicated read-only user rather than the app's DB credentials:
 
 ```sql
 CREATE USER monitoring WITH PASSWORD 'strong-password-here';
 GRANT pg_monitor TO monitoring;
 ```
 
-`pg_monitor` is a built-in role that grants read access to the stats views
-`postgres_exporter` needs (`pg_stat_*`, `pg_settings`, etc.) without any
-data or DDL privileges. Available in PostgreSQL 10+.
+`pg_monitor` (PostgreSQL 10+) grants read access to the stats views
+`postgres_exporter` needs (`pg_stat_*`, `pg_settings`, …) with no data or DDL
+privileges. Put the password in `.env` as `POSTGRES_MONITORING_PASSWORD`.
 
-Put the password in your `.env` and reference it as
-`POSTGRES_MONITORING_PASSWORD` in the compose.
-
-## 3. Verify the exporter
+## 3. Verify
 
 ```bash
-curl http://localhost:9187/metrics | head -20
+docker compose exec postgres-exporter curl -s localhost:9187/metrics | head -20
 ```
+Should print `pg_*` metrics. Errors are usually a connection-string typo or a
+missing `pg_monitor` grant.
 
-Should print `pg_*` metrics. If it errors, check the exporter's logs —
-usually a connection-string typo or missing `pg_monitor` grant.
+## 4. What you get
 
-## 4. Register with Prometheus
+Dashboard: **Grafana → PostgreSQL**. Panels: up/down, connections + utilization
+(%), cache hit ratio, per-database connections, commit vs rollback rate,
+deadlocks, DB size, tuple operations.
 
-Drop a JSON file in `prometheus/targets/postgresql/`:
-
-`prometheus/targets/postgresql/cfp.json`:
-```json
-[
-  {
-    "targets": ["host.docker.internal:9187"],
-    "labels": {
-      "app": "cfp-classifier",
-      "deployment": "sdd",
-      "service": "postgres",
-      "host": "cfp-classifier",
-      "environment": "production"
-    }
-  }
-]
-```
-
-`app` / `deployment` tie this exporter to its application and deployment (so a
-second deployment's Postgres stays separate); `service` names the component
-(`postgres`). `datname` still differentiates individual databases within the
-instance.
-
-Prometheus hot-reloads within 30 seconds. Verify at
-`http://<monitor>:9090/targets` — `postgresql` job should be `UP`.
-
-## 5. What you get
-
-Dashboard: **Grafana → Dashboards → PostgreSQL**. Panels:
-
-- Up/down, active connections, connection utilization (%), cache hit ratio.
-- Connections over time per database.
-- Transaction rate (commit vs rollback — rising rollback is a smell).
-- Deadlocks and conflicts.
-- Database size over time.
-- Tuple operations (fetched / inserted / updated / deleted rates).
-
-Alerts: **`prometheus/rules/postgresql_rules.yml`** ships with:
+Alerts: **`prometheus/rules/postgresql_rules.yml`**:
 
 - `PostgreSQLDown` — unreachable for 2m.
 - `PostgreSQLTooManyConnections` — >85% of max_connections for 10m.
-  Usually a client-side connection pool sizing issue or a leak.
-- `PostgreSQLLowCacheHitRatio` — <90% for 30m. Working set has outgrown
-  `shared_buffers`, or a query is doing full scans.
-- `PostgreSQLDeadlocks` — any deadlock rate for 5m. Occasional deadlocks
-  under contention are normal; sustained rate usually means a lock-ordering
-  bug in application code.
-- `PostgreSQLReplicationLag` — replica > 15 minutes behind primary.
-  Requires the exporter's replication collector to be enabled and the
-  exporter to be pointed at the primary. Panel and alert both show "No
-  data" if replication isn't configured.
+- `PostgreSQLLowCacheHitRatio` — <90% for 30m (working set outgrew
+  `shared_buffers`, or full scans).
+- `PostgreSQLDeadlocks` — deadlock rate for 5m (sustained ⇒ lock-ordering bug).
+- `PostgreSQLReplicationLag` — replica >15m behind primary (needs the
+  replication collector, exporter pointed at the primary).
 
 ## Multiple databases
 
-`postgres_exporter` connects to *one* database (the one in
-`DATA_SOURCE_NAME`) but by default queries stats for *all* databases on
-that PostgreSQL instance — the `datname` label in metrics differentiates
-them. That's what powers the "Database" filter on the dashboard.
-
-If you have PostgreSQL instances on different hosts, deploy one exporter
-per host and add one entry per host in the JSON file (or split into per-
-host files). The `host` label differentiates them.
+`postgres_exporter` connects to one database but queries stats for *all*
+databases on the instance — the `datname` label differentiates them, powering
+the dashboard's "Database" filter.
 
 ## Optional: custom queries
 
-`postgres_exporter` supports user-defined queries via a `queries.yaml` file.
-Useful for exposing app-specific metrics that live in database tables
-(e.g. row counts on a business-critical table). This turns into business
-metrics — same discipline as `docs/business-metrics.md`; naming convention
-applies.
+`postgres_exporter` supports user-defined queries via `queries.yaml` — useful
+for app-specific counts on a business-critical table. Same discipline as
+[`business-metrics.md`](business-metrics.md).
 
 ## Common gotchas
 
-- **Connection refused between exporter and PostgreSQL.** Check hostname
-  (`postgres` vs `localhost` — inside a Docker network, service name; from
-  outside, the mapped port). Check that PostgreSQL's `pg_hba.conf` allows
-  the exporter's user + source IP.
-- **Exporter runs but metrics are all zero.** Grant issue — `pg_monitor`
-  wasn't granted to the user. `\du monitoring` in psql to check.
-- **Sudden gap in metrics after a PostgreSQL upgrade.** The stats views
-  occasionally rename columns between major versions. Update
-  `postgres_exporter` to a version that matches your PG major.
-- **`pg_stat_replication_lag_bytes` is empty even though we have
-  replication.** The exporter needs to be pointed at a *primary* to see
-  replication metrics; replicas expose different views. If you want
-  metrics from replicas too, deploy an exporter per node.
-- **High cardinality on `pg_stat_user_tables` metrics.** Databases with
-  thousands of tables can blow up cardinality. Configure the exporter's
-  `--disable-default-metrics` and enable only what you need if you hit
-  Prometheus storage pressure.
+- **Connection refused between exporter and PostgreSQL** — hostname (`postgres`
+  service name inside the network), and `pg_hba.conf` allows the user + source.
+- **Metrics all zero** — `pg_monitor` not granted. `\du monitoring` to check.
+- **Gap after a PG major upgrade** — stats views rename columns between
+  majors; bump `postgres_exporter` to match your PG major.
+- **High cardinality on `pg_stat_user_tables`** — thousands of tables blow up
+  cardinality; use `--disable-default-metrics` and enable only what you need.

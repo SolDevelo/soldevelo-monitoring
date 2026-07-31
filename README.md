@@ -11,39 +11,37 @@ any Linux host with Docker.
 ## What's in the box
 
 ```
-                       ┌─────────────────────────────────────────┐
-                       │       Monitoring host (one VM)          │
-                       │                                         │
-  metrics scrape  ┌─── │  Prometheus ─► Alertmanager ─► Slack    │
-  ◄──────────────┐│    │      ▲              ▲                   │
-                 ││    │      └──── Blackbox (HTTP probes)       │
-  Loki push      ││    │                                         │
-  ◄──────────────┼┘    │      Grafana (provisioned dashboards)   │
-                 │     │         ▲                               │
-  /actuator/     │     │      Loki ◄── (logs)                    │
-  prometheus   ◄─┤     │                                         │
-                 │     │      + Prometheus-meta (self-monitor)   │
-                 │     └─────────────────────────────────────────┘
-                 │
-       ┌─────────┴────────────────────────────────────┐
-       │  Target host(s)                               │
-       │   node-exporter | cAdvisor | Promtail         │
-       │   + your services (Java apps emit Micrometer) │
-       └───────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────┐
+                    │            Monitoring host (VM)           │
+   push (HTTPS)     │                                           │
+   metrics ─────────┼─► Prometheus ─► Alertmanager ─► Slack     │
+   logs    ─────────┼─► Loki                                    │
+                    │   Grafana (dashboards)   Blackbox (probes)│
+                    │   + Prometheus-meta (self-monitor)        │
+                    └──────────────────────────────────────────┘
+                    ▲
+       ┌────────────┴───────────────────────────────────┐
+       │  Target host / cluster                          │
+       │   Grafana Alloy: discovers workloads, collects  │
+       │   host + container + app metrics and all logs,  │
+       │   pushes to the monitoring host over HTTPS       │
+       └─────────────────────────────────────────────────┘
 ```
 
-- **stack/** — runs on the monitoring host (Prom + Prom-meta + Loki + Grafana
-  + Alertmanager + Blackbox + monitor's own node-exporter + cAdvisor).
-- **agents/** — runs on each target host (node-exporter + cAdvisor + Promtail
-  with Docker service discovery).
+- **stack/** — runs on the monitoring host (Prometheus with the remote-write
+  receiver + Prometheus-meta + Loki + Grafana + Alertmanager + Blackbox + the
+  monitor's own node-exporter + cAdvisor).
+- **agents-alloy/** — one Grafana Alloy agent per target host: discovers the
+  local workloads, collects host + container + app metrics and every
+  container's logs, and pushes them in over authenticated HTTPS.
 - **prometheus/**, **loki/**, **alertmanager/**, **blackbox/**, **grafana/** —
   configs (templates rendered from `.env` plus committed rule files).
 - **bin/render-configs.sh** — envsubst `*.template` files using `.env` values.
-- **docs/** — `metrics.md` (catalog and conventions), `host-setup.md`,
-  `blackbox-setup.md`, `java-app-setup.md`, `python-app-setup.md`,
-  `business-metrics.md`, `rabbitmq-setup.md`, `postgresql-setup.md`,
-  `jenkins-setup.md`, `remote-push-setup.md` (accept metrics/logs pushed in
-  from a deployment on another network/account).
+- **docs/** — `metrics.md` (catalog and conventions), `remote-push-setup.md`
+  (the ingest endpoints), `host-setup.md` (run the agent), `blackbox-setup.md`
+  (HTTP probes), `java-app-setup.md`, `python-app-setup.md`, `rabbitmq-setup.md`,
+  `postgresql-setup.md`, `jenkins-setup.md` (label a service for discovery),
+  `business-metrics.md`.
 
 ### Dashboards (ten, all provisioned-as-code)
 
@@ -99,17 +97,15 @@ any Linux host with Docker.
   `sudo dnf install docker-compose-plugin` (Amazon Linux / Fedora /
   RHEL-family).
 - `gettext` (provides `envsubst`) for the render script.
-- Network: target host must reach monitoring host on **3100** (Loki push) and
-  the monitoring host must reach each target on **9100** (node-exporter),
-  **9180** (cAdvisor), and the management port of each Java app. Lock those
-  down with security groups / firewalls — no authentication on the metrics
-  ports.
+- Network: each target host needs **outbound HTTPS (443)** to the monitoring
+  host's ingest endpoints — nothing inbound. The monitoring host serves Grafana
+  and the bearer-gated `/ingest/*` paths through Caddy on 80/443.
 
 ## Quickstart — monitoring host
 
 ```bash
 cp .env.example .env
-$EDITOR .env                       # STACK-SIDE vars: MONITORING_*, GRAFANA_*, SLACK_*
+$EDITOR .env                       # STACK-SIDE vars: MONITORING_*, GRAFANA_*, SLACK_*, INGEST_TOKEN
 bin/render-configs.sh
 docker compose --env-file .env -f stack/docker-compose.yml up -d
 xdg-open "${MONITORING_SITE:-http://localhost}"
@@ -118,25 +114,21 @@ xdg-open "${MONITORING_SITE:-http://localhost}"
 Grafana login: whatever you set in `GRAFANA_ADMIN_*`. You'll land on the
 **SolDevelo Monitoring** home dashboard.
 
-Then register the things you want monitored by dropping JSON files in
-`prometheus/targets/<component>/`. See:
-- [`docs/host-setup.md`](docs/host-setup.md) — host onboarding (paired
-  `nodes/` + `cadvisor/` targets).
+Then onboard what you want monitored — each target host/cluster runs one Alloy
+agent that discovers its workloads and pushes in:
+- [`docs/host-setup.md`](docs/host-setup.md) — run the agent on a host.
+- [`docs/remote-push-setup.md`](docs/remote-push-setup.md) — the ingest endpoints.
 - [`docs/blackbox-setup.md`](docs/blackbox-setup.md) — HTTP probes.
 - [`docs/java-app-setup.md`](docs/java-app-setup.md),
-  [`docs/python-app-setup.md`](docs/python-app-setup.md) — application
-  scrape targets.
+  [`docs/python-app-setup.md`](docs/python-app-setup.md) — application services.
 - [`docs/rabbitmq-setup.md`](docs/rabbitmq-setup.md),
   [`docs/postgresql-setup.md`](docs/postgresql-setup.md),
-  [`docs/jenkins-setup.md`](docs/jenkins-setup.md) — stack components.
-- [`docs/remote-push-setup.md`](docs/remote-push-setup.md) — for a deployment
-  on another network / AWS account that can't be scraped: run Grafana Alloy
-  there and have it push metrics + logs to this host over authenticated HTTPS.
+  [`docs/jenkins-setup.md`](docs/jenkins-setup.md) — infra components.
 
 ## Reverse proxy (Caddy) — works the same on laptop and EC2
 
-The stack includes Caddy in front of Grafana. Caddy's auto-HTTPS picks
-behaviour from the site address in `MONITORING_SITE`:
+The stack includes Caddy in front of Grafana and the ingest endpoints. Caddy's
+auto-HTTPS picks behaviour from the site address in `MONITORING_SITE`:
 
 | `MONITORING_SITE` value | What Caddy does |
 |---|---|
@@ -159,24 +151,20 @@ Prometheus (9090) and Alertmanager (9093) — they have no auth.
 
 ## Quickstart — target host (the thing being monitored)
 
-On each server you want to monitor:
+Each target host runs one Alloy agent:
 
 ```bash
 git clone <this repo>
 cd soldevelo-monitoring
 cp .env.example .env
-$EDITOR .env                       # AGENTS-SIDE vars: TARGET_NAME, MONITORING_SERVER_HOST
-bin/render-configs.sh
-docker compose --env-file .env -f agents/docker-compose.yml up -d
+$EDITOR .env                       # AGENT-SIDE: APP, DEPLOYMENT, TARGET_NAME, INGEST_*
+docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
 ```
 
-Verify on the target: `curl http://localhost:9100/metrics` (node-exporter) and
-`http://localhost:9180/metrics` (cAdvisor) both return Prometheus-format data.
-
-Then on the **monitoring host**, register the target by adding an entry to
-paired JSON files in `prometheus/targets/nodes/*.json` and
-`prometheus/targets/cadvisor/*.json`. Full walkthrough:
-[`docs/host-setup.md`](docs/host-setup.md).
+Host + container metrics and all container logs now flow. Add compose labels to
+your app services so the agent scrapes them too. Full walkthrough:
+[`docs/host-setup.md`](docs/host-setup.md) and
+[`agents-alloy/README.md`](agents-alloy/README.md).
 
 ## Adding a Java application
 
@@ -184,33 +172,31 @@ Spring Boot apps with Actuator + Micrometer get the JVM dashboard and alerts.
 Full walkthrough: [`docs/java-app-setup.md`](docs/java-app-setup.md).
 
 Short version:
-1. Add `spring-boot-starter-actuator` and `micrometer-registry-prometheus`
-   to the app.
-2. Set `management.endpoints.web.exposure.include=health,prometheus`
-   (optionally `management.metrics.tags.service=<name>` — the target label
-   in step 3 overrides it).
-3. Drop a JSON file in `prometheus/targets/java/`:
-   ```json
-   [
-     {"targets": ["host:port"], "labels": {"app":"<app>", "deployment":"<deployment>", "service":"<name>", "host":"<host>", "environment":"production"}}
-   ]
+1. Add `spring-boot-starter-actuator` + `micrometer-registry-prometheus`.
+2. Serve actuator on a separate unsecured management port:
+   `management.server.port=9090`, `management.server.address=0.0.0.0`,
+   `management.endpoints.web.exposure.include=health,prometheus`.
+3. Label the service so the agent discovers it:
+   ```yaml
+   labels:
+     monitoring.scrape: "true"
+     monitoring.port: "9090"
+     monitoring.path: "/actuator/prometheus"
+     monitoring.service: "scraper"
    ```
-   `app` groups every service of one application; `deployment` distinguishes
-   multiple deployments of that same application (e.g. `sdd`, `ilo`). See the
-   label contract in [`docs/metrics.md`](docs/metrics.md).
-4. Wait 30 s. Prometheus hot-reloads target lists; no restart needed.
-
-For 10+ microservices (OpenLMIS Malawi case), one entry per service in a
-single JSON file — same shape, scales without further refactoring.
+   `app` / `deployment` / `host` come from the agent's env; `service` from the
+   label. On Kubernetes use `prometheus.io/scrape` pod annotations. Label
+   contract: [`docs/metrics.md`](docs/metrics.md).
 
 ## How do I know it's working?
 
 - **Grafana → SolDevelo Monitoring (home)** — alert counts, dashboard list,
   currently-firing table.
 - **Prometheus → Status → Targets** at `http://<monitor-host>:9090/targets` —
-  every configured job (`node`, `cadvisor`, `blackbox_http`, `java`,
-  `python`, `rabbitmq`, `postgresql`, `jenkins`, meta jobs) should be `UP`.
-  Jobs with no target JSON files simply show empty — expected.
+  the `prometheus` and `blackbox_http` jobs are `UP`. App / host / container
+  metrics arrive via remote_write; query e.g. `up{deployment="<name>"}` to see
+  the pushed targets.
+- **Grafana → Explore → Loki** — `{deployment="<name>"}` shows logs streaming.
 - **Alertmanager** at `http://<monitor-host>:9093` — firing alerts, silences,
   routing.
 - **Slack** — set a probe URL to something broken (e.g.
@@ -219,46 +205,38 @@ single JSON file — same shape, scales without further refactoring.
 
 ## Local testing on a single machine
 
-For development and evaluation: run stack + agents on the same Docker host.
-`localhost` inside a container is the container itself, so use
-`host.docker.internal` instead — the package's compose files ship the
-`host-gateway` alias on Prometheus / Blackbox / Promtail to make that resolve
-on Linux Docker.
+Run the stack and an Alloy agent on the same Docker host, and point the agent's
+`INGEST_*` at the local stack. `localhost` inside a container is the container
+itself, so use `host.docker.internal` (the compose files ship the
+`host-gateway` alias for it on Linux Docker).
 
-On the **agents side** of `.env`:
+On the **agent** `.env`:
 ```env
+APP=<app>
+DEPLOYMENT=local
 TARGET_NAME=<host-slug>
-MONITORING_SERVER_HOST=host.docker.internal
-```
-
-On the **monitoring host**, use `host.docker.internal` as the address in
-target JSON files:
-```json
-[{"targets": ["host.docker.internal:9100"], "labels": {"app": "<app>", "deployment": "<deployment>", "host": "<host-slug>"}}]
+INGEST_METRICS_URL=http://host.docker.internal/ingest/prometheus/api/v1/write
+INGEST_LOGS_URL=http://host.docker.internal/ingest/loki/loki/api/v1/push
+INGEST_TOKEN=<token from the stack .env>
 ```
 
 Port collision: if Grafana's `3000` clashes with something else (e.g.
 Keycloak), remap on the host side: `"3001:3000"`.
 
-After `.env` changes:
-
+After stack `.env` changes:
 ```bash
 bin/render-configs.sh
-docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreate prometheus blackbox
-docker compose --env-file .env -f agents/docker-compose.yml up -d --force-recreate promtail
+docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreate prometheus caddy
 ```
-
-Target JSON changes need no render/restart — Prometheus hot-reloads them
-every 30 seconds.
 
 ## Operating notes
 
 - **After `.env` edits** — re-run `bin/render-configs.sh` AND force-recreate
-  any containers that bind-mount the rendered config (Prometheus,
-  Alertmanager, Blackbox, Promtail). A plain `restart` doesn't always pick up
-  bind-mounted file changes.
-- **After target-file edits** (`prometheus/targets/<component>/*.json`) —
-  Prometheus hot-reloads file_sd within 30 s. No render, no restart.
+  the containers that bind-mount rendered config (Prometheus, Alertmanager,
+  Blackbox, Caddy). A plain `restart` doesn't always pick up bind-mounted
+  file changes.
+- **After blackbox target edits** (`prometheus/targets/blackbox/*.json`) —
+  Prometheus hot-reloads within 30 s. No render, no restart.
 - **After dashboard edits** (`grafana/dashboards/*.json`) — Grafana
   hot-reloads within 30 s, no restart. **Permissions caveat:** on
   umask-hardened hosts (CIS AMIs, `umask 0027`) a `git pull` writes the file
@@ -277,21 +255,22 @@ every 30 seconds.
 
 ## Conventions
 
-- **Labeling** — every target carries `app` / `deployment` / `service` /
+- **Labeling** — every series carries `app` / `deployment` / `service` /
   `host` / `environment`. `app` names the application, `deployment`
   distinguishes multiple deployments of that same application (e.g. `sdd`,
   `ilo`), and `service` is the component within it (no app prefix). A series
   is unique on (`app`, `deployment`, `service`, `instance`), which is what
   lets one instance monitor several apps and several deployments of one app
-  without collisions. Full contract: [`docs/metrics.md`](docs/metrics.md).
+  without collisions. `app` / `deployment` / `host` are set once by the agent;
+  `service` comes from the workload's label / annotation. Full contract:
+  [`docs/metrics.md`](docs/metrics.md).
 - **Metric catalog** — [`docs/metrics.md`](docs/metrics.md) is the canonical
   list of metrics this package relies on, with required labels and the
   "what it does NOT mean" pattern for heading off semantic drift between
   projects.
-- **Java onboarding** — [`docs/java-app-setup.md`](docs/java-app-setup.md)
-  covers dependencies, properties, ports, `-Xmx` sizing, the common
-  Spring-Security-on-actuator gotcha, and the diagnostic ladder for "target
-  is DOWN".
+- **Self-describing workloads** — a service is monitored by declaring its
+  metrics endpoint on itself (docker compose labels, or `prometheus.io/*` pod
+  annotations); the agent discovers it. No target lists to maintain.
 
 ## Versioning
 
@@ -309,36 +288,34 @@ goes on a git tag is always semver.
 
 ## Roadmap
 
-- **V1 (nearly complete)** — shipped across `0.1.0`–`0.3.0`: Java /
-  Micrometer scrape + JVM dashboard + JVM alerts + HTTP RED + HikariCP +
-  Python + RabbitMQ + PostgreSQL + Jenkins + business-metrics convention
-  + file_sd everywhere. Remaining: second adopter deployment (OpenLMIS
-  Malawi) to prove the distribution model in practice.
+- **V1 (complete)** — Alloy push agents, JVM / Python / RabbitMQ / PostgreSQL /
+  Jenkins dashboards + alerts, HTTP RED, HikariCP, business-metrics convention,
+  and the multi-app / multi-deployment label taxonomy — proven on two live
+  deployments (docker + EKS).
 - **V2** — Terraform module to provision the monitoring VM on AWS:
   EC2 + EBS + Route53 + Caddy reverse proxy + automatic backups.
-- **V3+** — Frontend RUM (Grafana Faro), multi-tenant Grafana, Helm/K8s
-  variant, unified Service dashboard (constant top + technology-adaptive
+- **V3+** — Frontend RUM (Grafana Faro), multi-tenant Grafana, Kubernetes
+  Alloy chart, unified Service dashboard (constant top + technology-adaptive
   panels), runbook directory linked from alert payloads.
 
 ## Why these choices
 
-- **Versioned base + thin overlay**, not copy-and-modify. Target projects
-  pin a release and override via `.env` + per-project files (Java target
-  JSON, probe URL list); improvements fan out by bumping the version.
+- **Push, not pull** — each target runs one Alloy agent that discovers its
+  workloads (docker labels / k8s annotations), collects host + container + app
+  metrics and logs, and pushes to the monitoring host over authenticated
+  HTTPS. No target lists to maintain, no inbound scrape ports, and it works
+  across separate networks / cloud accounts unchanged.
+- **Self-describing workloads** — the scrape intent lives on the workload, next
+  to the team that owns it; the agent discovers it. No drift between a service
+  and a separate registry.
+- **Versioned base + thin overlay**, not copy-and-modify. Target projects pin
+  a release and override via `.env` + per-project files; improvements fan out
+  by bumping the version.
 - **Dashboards-as-code (provisioned JSON)**, not "import-from-UI". Dashboards
   land automatically on first boot; no clicks needed.
 - **Two Prometheus instances** (main + meta). Meta watches the monitoring
   host itself, so a disk-full or Loki outage on the monitor doesn't silently
   stop alerting.
-- **`network_mode: host` for node-exporter**, not the obvious-looking bridge
-  default. Without it, the netdev / netclass collectors see the container's
-  own netns rather than the real host's — which produces near-zero network
-  numbers that look like the host is idle when it isn't.
-- **File_sd everywhere** for target configuration. Every scrape job — hosts,
-  containers, HTTP probes, Java apps, Python apps, PostgreSQL, RabbitMQ,
-  Jenkins — reads targets from `prometheus/targets/<component>/*.json`.
-  Consistent pattern, hot-reloaded, scales from one target to fifty
-  without any base-file edits.
 
 ## License
 

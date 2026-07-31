@@ -1,6 +1,6 @@
 name: soldevelo-monitoring-agents
 
-# One Alloy agent per host — supersedes the agents/ bundle. See README.md.
+# One Alloy agent per host: discover, collect, push. See README.md.
 
 services:
   alloy:

@@ -12,94 +12,17 @@ alerting:
 rule_files:
   - /etc/prometheus/rules/*.yml
 
+# App, host, and container metrics arrive via remote_write from the Alloy
+# agents (receiver enabled with --web.enable-remote-write-receiver). The only
+# scrape jobs are Prometheus itself and the blackbox HTTP probes.
 scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
 
-  - job_name: node
-    # Targets come from JSON files in prometheus/targets/nodes/*.json.
-    # See docs/host-setup.md for the file format.
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/nodes/*.json
-        refresh_interval: 30s
-
-  - job_name: cadvisor
-    # Targets come from JSON files in prometheus/targets/cadvisor/*.json.
-    # Usually paired 1:1 with the nodes/ file for each host.
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/cadvisor/*.json
-        refresh_interval: 30s
-
-  - job_name: java
-    # Targets come from JSON files in prometheus/targets/java/*.json.
-    # See docs/java-app-setup.md for the file format. Prometheus hot-reloads
-    # changes within refresh_interval — no restart needed to add/remove apps.
-    metrics_path: /actuator/prometheus
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/java/*.json
-        refresh_interval: 30s
-    relabel_configs:
-      # Allow per-target override of metrics_path via a label of the same
-      # name in the JSON — useful for apps that put actuator on a custom path.
-      - source_labels: [metrics_path]
-        regex: (.+)
-        target_label: __metrics_path__
-      # Drop the helper label from the final metric set so it doesn't pollute
-      # series cardinality.
-      - regex: metrics_path
-        action: labeldrop
-
-  - job_name: python
-    # Targets come from JSON files in prometheus/targets/python/*.json.
-    # See docs/python-app-setup.md for the file format.
-    metrics_path: /metrics
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/python/*.json
-        refresh_interval: 30s
-    relabel_configs:
-      - source_labels: [metrics_path]
-        regex: (.+)
-        target_label: __metrics_path__
-      - regex: metrics_path
-        action: labeldrop
-
-  - job_name: rabbitmq
-    # RabbitMQ Prometheus plugin (3.8+ built-in on :15692) or
-    # rabbitmq_exporter sidecar. See docs/rabbitmq-setup.md.
-    # /metrics/per-object exposes per-queue series (queue= label). The default
-    # /metrics endpoint is aggregated and has no queue label, which leaves the
-    # Grafana Queue picker empty and prevents per-queue alerts from firing.
-    metrics_path: /metrics/per-object
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/rabbitmq/*.json
-        refresh_interval: 30s
-
-  - job_name: postgresql
-    # postgres_exporter sidecar. See docs/postgresql-setup.md.
-    metrics_path: /metrics
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/postgresql/*.json
-        refresh_interval: 30s
-
-  - job_name: jenkins
-    # Jenkins Prometheus plugin exposes /prometheus by default (not /metrics).
-    # See docs/jenkins-setup.md.
-    metrics_path: /prometheus
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/jenkins/*.json
-        refresh_interval: 30s
-
   - job_name: blackbox_http
     # Probe URLs come from JSON files in prometheus/targets/blackbox/*.json.
-    # See docs/blackbox-setup.md for the file format.
+    # See docs/blackbox-setup.md.
     metrics_path: /probe
     params:
       module: [http_2xx]
