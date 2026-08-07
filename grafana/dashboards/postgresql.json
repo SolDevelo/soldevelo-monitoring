@@ -10,6 +10,18 @@
   "templating": {
     "list": [
       {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(pg_up, environment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
         "name": "host",
         "label": "Host",
         "type": "query",
@@ -56,7 +68,7 @@
       },
       "options": { "colorMode": "background", "graphMode": "none" },
       "targets": [
-        { "expr": "pg_up{host=\"$host\"}", "refId": "A" }
+        { "expr": "pg_up{host=\"$host\",environment=~\"$environment\"}", "refId": "A" }
       ]
     },
     {
@@ -68,7 +80,7 @@
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(pg_stat_database_numbackends{host=\"$host\",datname=~\"$datname\"})",
+          "expr": "sum(pg_stat_database_numbackends{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"})",
           "refId": "A"
         }
       ]
@@ -98,7 +110,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(pg_stat_database_numbackends{host=\"$host\"}) / max(pg_settings_max_connections{host=\"$host\"})",
+          "expr": "sum(pg_stat_database_numbackends{host=\"$host\",environment=~\"$environment\"}) / max(pg_settings_max_connections{host=\"$host\",environment=~\"$environment\"})",
           "refId": "A"
         }
       ]
@@ -128,7 +140,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(rate(pg_stat_database_blks_hit{host=\"$host\",datname=~\"$datname\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{host=\"$host\",datname=~\"$datname\"}[5m])) + sum(rate(pg_stat_database_blks_read{host=\"$host\",datname=~\"$datname\"}[5m])))",
+          "expr": "sum(rate(pg_stat_database_blks_hit{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m])) + sum(rate(pg_stat_database_blks_read{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m])))",
           "refId": "A"
         }
       ]
@@ -141,7 +153,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "pg_stat_database_numbackends{host=\"$host\",datname=~\"$datname\"}",
+          "expr": "pg_stat_database_numbackends{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}",
           "legendFormat": "{{datname}}",
           "refId": "A"
         }
@@ -156,12 +168,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_xact_commit{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_commit{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} commit",
           "refId": "A"
         },
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_xact_rollback{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_rollback{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} rollback",
           "refId": "B"
         }
@@ -175,12 +187,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_deadlocks{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_deadlocks{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} deadlocks",
           "refId": "A"
         },
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_conflicts{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_conflicts{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} conflicts",
           "refId": "B"
         }
@@ -195,7 +207,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "pg_database_size_bytes{host=\"$host\",datname=~\"$datname\"}",
+          "expr": "pg_database_size_bytes{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}",
           "legendFormat": "{{datname}}",
           "refId": "A"
         }
@@ -223,7 +235,7 @@
       },
       "targets": [
         {
-          "expr": "pg_replication_lag{host=\"$host\"}",
+          "expr": "pg_replication_lag{host=\"$host\",environment=~\"$environment\"}",
           "legendFormat": "lag (s)",
           "refId": "A"
         }
@@ -237,22 +249,22 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_tup_fetched{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_fetched{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} fetched",
           "refId": "A"
         },
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_tup_inserted{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_inserted{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} inserted",
           "refId": "B"
         },
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_tup_updated{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_updated{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} updated",
           "refId": "C"
         },
         {
-          "expr": "sum by (datname) (rate(pg_stat_database_tup_deleted{host=\"$host\",datname=~\"$datname\"}[5m]))",
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_deleted{host=\"$host\",environment=~\"$environment\",datname=~\"$datname\"}[5m]))",
           "legendFormat": "{{datname}} deleted",
           "refId": "D"
         }

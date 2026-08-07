@@ -7,6 +7,22 @@
   "timezone": "browser",
   "time": { "from": "now-3h", "to": "now" },
   "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(probe_success, environment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
   "panels": [
     {
       "id": 1,
@@ -31,7 +47,7 @@
       },
       "options": { "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [
-        { "expr": "probe_success", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_success{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -42,7 +58,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
-        { "expr": "probe_duration_seconds", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_duration_seconds{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -53,7 +69,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "min": 0, "max": 1 } },
       "targets": [
-        { "expr": "probe_success", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_success{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -77,7 +93,7 @@
       },
       "targets": [
         {
-          "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400",
+          "expr": "(probe_ssl_earliest_cert_expiry{environment=~\"$environment\"} - time()) / 86400",
           "format": "table",
           "instant": true,
           "refId": "A"

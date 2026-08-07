@@ -10,6 +10,18 @@
   "templating": {
     "list": [
       {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(node_uname_info, environment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
         "name": "host",
         "label": "Host",
         "type": "query",
@@ -33,7 +45,7 @@
       },
       "targets": [
         {
-          "expr": "100 - (avg by (host) (rate(node_cpu_seconds_total{mode=\"idle\",host=\"$host\"}[5m])) * 100)",
+          "expr": "100 - (avg by (host) (rate(node_cpu_seconds_total{mode=\"idle\",host=\"$host\",environment=~\"$environment\"}[5m])) * 100)",
           "legendFormat": "cpu",
           "refId": "A"
         }
@@ -50,7 +62,7 @@
       },
       "targets": [
         {
-          "expr": "(1 - (node_memory_MemAvailable_bytes{host=\"$host\"} / node_memory_MemTotal_bytes{host=\"$host\"})) * 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{host=\"$host\",environment=~\"$environment\"} / node_memory_MemTotal_bytes{host=\"$host\",environment=~\"$environment\"})) * 100",
           "legendFormat": "memory",
           "refId": "A"
         }
@@ -79,7 +91,7 @@
       },
       "targets": [
         {
-          "expr": "100 - (node_filesystem_avail_bytes{host=\"$host\",mountpoint=\"/\",fstype!~\"tmpfs|fuse.lxcfs\"} / node_filesystem_size_bytes{host=\"$host\",mountpoint=\"/\"}) * 100",
+          "expr": "100 - (node_filesystem_avail_bytes{host=\"$host\",environment=~\"$environment\",mountpoint=\"/\",fstype!~\"tmpfs|fuse.lxcfs\"} / node_filesystem_size_bytes{host=\"$host\",environment=~\"$environment\",mountpoint=\"/\"}) * 100",
           "refId": "A"
         }
       ]
@@ -94,12 +106,12 @@
       "fieldConfig": { "defaults": { "unit": "Bps" } },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{host=\"$host\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
+          "expr": "rate(node_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
           "legendFormat": "{{device}} rx",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{host=\"$host\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
           "legendFormat": "{{device}} tx",
           "refId": "B"
         }
@@ -112,9 +124,9 @@
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "node_load1{host=\"$host\"}",  "legendFormat": "1m",  "refId": "A" },
-        { "expr": "node_load5{host=\"$host\"}",  "legendFormat": "5m",  "refId": "B" },
-        { "expr": "node_load15{host=\"$host\"}", "legendFormat": "15m", "refId": "C" }
+        { "expr": "node_load1{host=\"$host\",environment=~\"$environment\"}",  "legendFormat": "1m",  "refId": "A" },
+        { "expr": "node_load5{host=\"$host\",environment=~\"$environment\"}",  "legendFormat": "5m",  "refId": "B" },
+        { "expr": "node_load15{host=\"$host\",environment=~\"$environment\"}", "legendFormat": "15m", "refId": "C" }
       ]
     }
   ]

@@ -10,6 +10,18 @@
   "templating": {
     "list": [
       {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(container_last_seen, environment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
         "name": "host",
         "label": "Host",
         "type": "query",
@@ -52,7 +64,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{host=\"$host\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -77,7 +89,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (container_memory_usage_bytes{host=\"$host\",name=~\"$container\",name!=\"\"})",
+          "expr": "sum by (name) (container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"})",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -91,7 +103,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "count(time() - container_last_seen{host=\"$host\",name!=\"\"} < 60)",
+          "expr": "count(time() - container_last_seen{host=\"$host\",environment=~\"$environment\",name!=\"\"} < 60)",
           "refId": "A"
         }
       ]
@@ -105,7 +117,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{host=\"$host\",name=~\"$container\",name!=\"\"})",
+          "expr": "sum(container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"})",
           "refId": "A"
         }
       ]
@@ -119,7 +131,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{host=\"$host\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
           "refId": "A"
         }
       ]
@@ -143,7 +155,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{host=\"$host\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -168,7 +180,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{host=\"$host\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -183,7 +195,7 @@
       "options": { "showTime": true, "wrapLogMessage": false, "dedupStrategy": "none" },
       "targets": [
         {
-          "expr": "{host=\"$host\", container=~\"$container\"}",
+          "expr": "{host=\"$host\",environment=~\"$environment\", container=~\"$container\"}",
           "refId": "A"
         }
       ]
