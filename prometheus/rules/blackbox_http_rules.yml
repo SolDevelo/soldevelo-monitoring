@@ -1,14 +1,36 @@
 groups:
   - name: blackbox
     rules:
+      # Untagged probes. Probes tagged with a `check` label (public / app-direct)
+      # are handled by AppDown / PublicUrlUnreachable below.
       - alert: ProbeFailing
-        expr: probe_success == 0
+        expr: probe_success{check=""} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: "HTTP probe failing: {{ $labels.instance }}"
           description: "Blackbox HTTP probe to {{ $labels.instance }} has been failing for 2m."
+
+      # app-direct probe bypasses the public DNS, so a failure here is the app itself.
+      - alert: AppDown
+        expr: probe_success{check="app-direct"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application down: {{ $labels.deployment }}/{{ $labels.environment }}"
+          description: "The app-direct probe ({{ $labels.instance }}), which bypasses the public DNS, has been failing for 2m — the application itself is unreachable."
+
+      # Public URL down while the app is up = DNS/edge issue outside our control.
+      - alert: PublicUrlUnreachable
+        expr: probe_success{check="public"} == 0 and on (environment, deployment) probe_success{check="app-direct"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Public URL unreachable, app is up: {{ $labels.deployment }}/{{ $labels.environment }}"
+          description: "The public URL probe ({{ $labels.instance }}) is failing while the app-direct probe succeeds for 5m — likely a DNS/edge issue outside our control, not an application outage."
 
       - alert: ProbeSlow
         expr: probe_duration_seconds > 3

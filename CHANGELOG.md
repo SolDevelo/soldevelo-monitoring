@@ -11,6 +11,10 @@ follows [semver](https://semver.org/).
   (wires up the behaviour `docs/blackbox-setup.md` already described), and an
   `http_2xx_insecure` module for DNS-independent "is the app up" probes by
   IP / load-balancer DNS (no redirect-follow, no cert-name verify).
+- Blackbox alerts `AppDown` (app-direct probe down = the application itself) and
+  `PublicUrlUnreachable` (public probe down while the app-direct probe is up =
+  DNS/edge issue, not an app outage), keyed on a `check` label. `ProbeFailing`
+  now scopes to untagged probes so it doesn't double-fire with these.
 
 ## [0.4.0] — 2026-07-31
 

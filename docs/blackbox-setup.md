@@ -100,6 +100,26 @@ It's picked up by the scrape config's relabel rules:
   reachable, or accept that internal endpoints stay on the internal-only
   probe list (from an internal monitor if you have one).
 
+## Public vs. app-direct availability (the `check` label)
+
+When the public URL depends on DNS or an edge you don't control, probe the app
+two ways and tag each with a `check` label so alerts can attribute failures:
+
+- `check: public` — the real public URL (module `http_2xx`). Fails if DNS/edge
+  **or** the app is down.
+- `check: app-direct` — the app via a path you control (the load-balancer's
+  cloud DNS or the instance IP), module `http_2xx_insecure`. Fails only if the
+  app itself is down.
+
+Tag both probes of one deployment with the same `app`/`deployment`/`environment`.
+Two alerts key off this:
+
+- `AppDown` (critical) — the `app-direct` probe is failing → the application is down.
+- `PublicUrlUnreachable` (warning) — `public` fails while `app-direct` succeeds →
+  a DNS/edge problem outside the app, not an outage.
+
+Leave `check` off for ordinary probes; `ProbeFailing` covers those.
+
 ## Common gotchas
 
 - **Probe shows DOWN with `connection refused` / `timeout`** — target URL
