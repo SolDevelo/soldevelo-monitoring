@@ -35,5 +35,11 @@ scrape_configs:
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
+      # per-target module override via a `module` label in the target JSON
+      - source_labels: [module]
+        regex: (.+)
+        target_label: __param_module
       - target_label: __address__
         replacement: blackbox:9115
+      - regex: module
+        action: labeldrop

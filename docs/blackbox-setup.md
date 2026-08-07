@@ -61,6 +61,9 @@ different behaviour (POST, custom headers, allow non-2xx, HTTPS-required,
 TCP-only, etc.), `blackbox/blackbox.yml` defines several modules:
 
 - `http_2xx` — the default. GET, follow redirects, 2xx expected.
+- `http_2xx_insecure` — GET over HTTPS by IP / load-balancer DNS, no
+  redirect-follow, no cert-name verify — for DNS-independent "is the app up"
+  probes (pair it with a normal `http_2xx` probe of the public URL).
 - `http_2xx_post` — POST instead of GET.
 - `tcp_connect` — TCP handshake only, no HTTP.
 - `icmp` — ping (needs the container to run with cap_net_raw).

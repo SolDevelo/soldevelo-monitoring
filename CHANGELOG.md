@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Blackbox: per-target `module` override via a `module` label in the target JSON
+  (wires up the behaviour `docs/blackbox-setup.md` already described), and an
+  `http_2xx_insecure` module for DNS-independent "is the app up" probes by
+  IP / load-balancer DNS (no redirect-follow, no cert-name verify).
+
 ## [0.4.0] — 2026-07-31
 
 Push-based collection built on Grafana Alloy, with a label taxonomy that lets
