@@ -15,6 +15,9 @@ follows [semver](https://semver.org/).
   `PublicUrlUnreachable` (public probe down while the app-direct probe is up =
   DNS/edge issue, not an app outage), keyed on a `check` label. `ProbeFailing`
   now scopes to untagged probes so it doesn't double-fire with these.
+- Alertmanager: alerts labelled `environment="dev"` route to a null receiver —
+  dev environments are collected but not notified. Overridable by pointing that
+  route at the `slack` receiver.
 - Dashboards: an `environment` template variable (UAT/Prod filter) on the JVM,
   Python, PostgreSQL, Host, Containers, and HTTP-probes dashboards. Defaults to
   All and matches series with or without an `environment` label, so single-

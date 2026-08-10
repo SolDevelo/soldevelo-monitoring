@@ -87,6 +87,10 @@ any Linux host with Docker.
 - **Monitor self-health**: `MonitorDiskLow`, `PrometheusUnreachable`,
   `LokiUnreachable`, `AlertmanagerUnreachable`.
 
+Alerts labelled `environment="dev"` are routed to a null receiver: dev targets
+get dashboards, metrics and logs, but never a Slack notification. Change that
+route's receiver in `alertmanager/alertmanager.yml.template` to opt in.
+
 ## Prerequisites
 
 - Linux host with Docker 24+ and **Docker Compose v2** (the Go plugin —

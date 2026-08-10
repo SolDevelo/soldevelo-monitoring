@@ -9,12 +9,19 @@ route:
   group_interval: 5m
   repeat_interval: 6h
   routes:
+    # Development environments are collected but never notified — dev churns on
+    # every redeploy/wipe, and that noise costs the channel its signal. Flip the
+    # receiver to `slack` if a deployment does want dev notifications.
+    - matchers:
+        - environment="dev"
+      receiver: "null"
     - matchers:
         - severity="critical"
       receiver: slack
       group_wait: 10s
 
 receivers:
+  - name: "null"
   - name: slack
     slack_configs:
       - channel: "${SLACK_CHANNEL}"
