@@ -15,6 +15,10 @@ follows [semver](https://semver.org/).
   `PublicUrlUnreachable` (public probe down while the app-direct probe is up =
   DNS/edge issue, not an app outage), keyed on a `check` label. `ProbeFailing`
   now scopes to untagged probes so it doesn't double-fire with these.
+- Alertmanager: alerts labelled `environment="prod"` route to their own
+  `slack-prod` receiver, configured with the optional `SLACK_WEBHOOK_URL_PROD` /
+  `SLACK_CHANNEL_PROD`. Both fall back to `SLACK_WEBHOOK_URL` / `SLACK_CHANNEL`,
+  so deployments that want one channel for everything need no change.
 - Alertmanager: alerts labelled `environment="dev"` route to a null receiver —
   dev environments are collected but not notified. Overridable by pointing that
   route at the `slack` receiver.

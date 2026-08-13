@@ -91,6 +91,11 @@ Alerts labelled `environment="dev"` are routed to a null receiver: dev targets
 get dashboards, metrics and logs, but never a Slack notification. Change that
 route's receiver in `alertmanager/alertmanager.yml.template` to opt in.
 
+Alerts labelled `environment="prod"` go to the `slack-prod` receiver. Set
+`SLACK_WEBHOOK_URL_PROD` and `SLACK_CHANNEL_PROD` to give production its own
+channel; unset, both fall back to `SLACK_WEBHOOK_URL` / `SLACK_CHANNEL` and
+everything shares one channel.
+
 ## Prerequisites
 
 - Linux host with Docker 24+ and **Docker Compose v2** (the Go plugin —

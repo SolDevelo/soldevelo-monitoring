@@ -28,12 +28,19 @@ set -a
 source "${ENV_FILE}"
 set +a
 
+# Optional vars with a documented fallback. Unset ones must still be expanded,
+# or envsubst leaves the literal '${VAR}' in the output and the config is invalid.
+: "${SLACK_WEBHOOK_URL_PROD:=${SLACK_WEBHOOK_URL:-}}"
+: "${SLACK_CHANNEL_PROD:=${SLACK_CHANNEL:-}}"
+export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD
+
 # Restrict envsubst to only vars defined in .env — avoids accidentally
 # expanding $PATH, $HOME etc. that appear inside templates.
 var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
   | sed -E 's/=.*//' \
   | sed 's/^/$/' \
   | tr '\n' ' ')
+var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD'
 
 found_any=0
 while IFS= read -r -d '' template; do

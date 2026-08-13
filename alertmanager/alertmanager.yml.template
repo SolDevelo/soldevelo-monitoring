@@ -15,6 +15,17 @@ route:
     - matchers:
         - environment="dev"
       receiver: "null"
+    # Production gets its own channel. Must precede the severity route below,
+    # or critical prod alerts would match that one and land in the default
+    # channel. Falls back to the default webhook when no prod one is set.
+    - matchers:
+        - environment="prod"
+      receiver: slack-prod
+      routes:
+        - matchers:
+            - severity="critical"
+          receiver: slack-prod
+          group_wait: 10s
     - matchers:
         - severity="critical"
       receiver: slack
@@ -25,6 +36,18 @@ receivers:
   - name: slack
     slack_configs:
       - channel: "${SLACK_CHANNEL}"
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
+        text: |
+          {{ range .Alerts -}}
+          *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          <${MONITORING_SITE}|open grafana>
+          {{ end }}
+  - name: slack-prod
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL_PROD}"
+        channel: "${SLACK_CHANNEL_PROD}"
         send_resolved: true
         title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
         text: |
