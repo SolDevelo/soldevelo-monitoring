@@ -44,8 +44,10 @@ rabbitmq:
     monitoring.service: "rabbitmq"
 ```
 
-`app` / `deployment` / `host` come from the agent's env, so a second
-deployment's broker stays separate automatically.
+`app` / `deployment` / `environment` / `host` come from the agent's env, so a
+second deployment's broker stays separate automatically. `monitoring.service`
+is what `RabbitMQDown` selects on (`up{job="app", service="rabbitmq"}`) — the
+alert is inert without it.
 
 ## 3. What you get
 

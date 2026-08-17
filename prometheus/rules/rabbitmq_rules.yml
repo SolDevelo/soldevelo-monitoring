@@ -2,7 +2,9 @@ groups:
   - name: rabbitmq
     rules:
       - alert: RabbitMQDown
-        expr: up{job="rabbitmq"} == 0
+        # See JenkinsDown: `job` is the collector kind, `service` is identity.
+        # Requires `monitoring.service: "rabbitmq"` on the container.
+        expr: up{job="app", service="rabbitmq"} == 0
         for: 2m
         labels:
           severity: critical

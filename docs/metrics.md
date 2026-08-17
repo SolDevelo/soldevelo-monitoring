@@ -36,7 +36,7 @@ prom-client, etc.) or it comes from an exporter — must carry these labels:
 | `deployment`  | `sdd`                  | A specific deployment of that app. Distinguishes multiple deployments of the *same* app (e.g. `sdd` on docker-compose, `ilo` on EKS). |
 | `service`     | `management`           | Short, stable slug for the component *within* the app (`management`, `scraper-1`, `classifier`, `postgres`, …). No app prefix — `app` / `deployment` already carry that. |
 | `host`        | `cfp-classifier`       | The host / node slug (not IP/DNS). Matches `TARGET_NAME`.          |
-| `environment` | `production`           | One of `production`, `staging`, `dev`.                             |
+| `environment` | `prod`                 | One of `prod`, `uat`, `staging`, `dev`. **Exactly these** — Alertmanager routes on the literal value, so `production` or an unset value silently misses both the prod channel and the dev mute and falls through to the default receiver. `bin/validate.sh` enforces the enum. |
 
 A time series is uniquely identified by (`app`, `deployment`, `service`,
 `instance`). That tuple is what lets a single monitoring instance hold
@@ -69,9 +69,38 @@ configs. Don't override them.
 | Label      | Set by                            | Notes                                |
 | ---------- | --------------------------------- | ------------------------------------ |
 | `instance` | Alloy (scrape target)             | The replica (compose service / pod). |
+| `job`      | Alloy (`job_name` / relabel)      | Collector **kind** — see below.      |
 | `monitor`  | `prometheus.yml` external_labels  | Which monitoring instance received.  |
 | `container`| Alloy / cAdvisor                  | Docker container name.               |
 | `stream`   | Alloy                             | `stdout` / `stderr` for log lines.   |
+
+### The `job` contract
+
+`job` names the **collector kind**, not the service. Service identity is
+`service`; dashboards and filters use `app` / `deployment` / `environment` /
+`service` / `instance` and never `job`.
+
+| `job`      | What it collects                                        |
+| ---------- | ------------------------------------------------------- |
+| `app`      | Anything discovered by the agent's docker SD — every application container, exporter sidecar, Jenkins, RabbitMQ. |
+| `node`     | `prometheus.exporter.unix` — host metrics.               |
+| `cadvisor` | `prometheus.exporter.cadvisor` — container metrics.      |
+| `agent`    | `prometheus.exporter.self` — the Alloy agent's heartbeat. |
+
+Rules key on these four values, so they must not be left to default. Alloy
+would otherwise label them with its own component names
+(`prometheus.scrape.app`, `integrations/unix`) and every alert in the package
+would be pinned to the agent config's internal structure — the migration from
+pull to push broke four alerts exactly that way.
+
+Two mechanisms, and the difference matters: the docker-SD scrape sets
+`job_name = "app"` on the scrape itself, but `prometheus.exporter.*` components
+preset `job` on their own targets and Prometheus honours a non-empty target
+label over `job_name`, so those need a `discovery.relabel` instead.
+
+Selecting one component out of `job="app"` is a `service` matcher:
+`up{job="app", service="jenkins"}`. That requires the container to carry
+`monitoring.service: "<name>"`.
 
 ### Adding to this catalog
 

@@ -6,6 +6,10 @@ services:
   alloy:
     image: grafana/alloy:${ALLOY_VERSION}
     restart: unless-stopped
+    # Pins `instance` on the agent's own exporter targets. Without it the
+    # container ID is used, so recreating the agent orphans every series it
+    # produced and AgentAbsent fires for a routine upgrade.
+    hostname: ${TARGET_NAME}
     command:
       - run
       - /etc/alloy/config.alloy
@@ -14,6 +18,7 @@ services:
     environment:
       APP: ${APP}
       DEPLOYMENT: ${DEPLOYMENT}
+      ENVIRONMENT: ${ENVIRONMENT}
       TARGET_NAME: ${TARGET_NAME}
       INGEST_METRICS_URL: ${INGEST_METRICS_URL}
       INGEST_LOGS_URL: ${INGEST_LOGS_URL}

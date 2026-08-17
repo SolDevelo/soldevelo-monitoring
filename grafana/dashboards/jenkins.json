@@ -14,7 +14,7 @@
         "label": "Host",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(up{job=\"jenkins\"}, host)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(up{job=\"app\",service=\"jenkins\"}, host)", "refId": "vars" },
         "refresh": 2,
         "includeAll": false,
         "multi": false
@@ -45,7 +45,7 @@
       },
       "options": { "colorMode": "background", "graphMode": "none" },
       "targets": [
-        { "expr": "up{job=\"jenkins\",host=\"$host\"}", "refId": "A" }
+        { "expr": "up{job=\"app\",service=\"jenkins\",host=\"$host\"}", "refId": "A" }
       ]
     },
     {

@@ -2,6 +2,10 @@ groups:
   - name: host
     rules:
       - alert: InstanceDown
+        # Catches a live agent whose unix exporter has stopped answering — a
+        # narrow case. A host that actually dies takes its agent with it, so
+        # nothing is pushed and this has no series to evaluate: `AgentAbsent`
+        # (per-deployment overlay) is the real host-down signal.
         expr: up{job="node"} == 0
         for: 1m
         labels:

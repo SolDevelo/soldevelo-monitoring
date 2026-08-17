@@ -26,10 +26,18 @@ labels:
   monitoring.service: "scraper"           # role (stable) → `service` label
 ```
 
-`app` / `deployment` / `host` come from the agent's env (`APP` / `DEPLOYMENT` /
-`TARGET_NAME`), not per-service. `instance` is the compose service name
-(`scraper`, `scraper-2`, …) — readable per-replica identity. So N replicas of
-one role become `service=<role>` split by `instance`.
+`app` / `deployment` / `environment` / `host` come from the agent's env (`APP` /
+`DEPLOYMENT` / `ENVIRONMENT` / `TARGET_NAME`), not per-service. `instance` is
+the compose service name (`scraper`, `scraper-2`, …) — readable per-replica
+identity. So N replicas of one role become `service=<role>` split by `instance`.
+
+`ENVIRONMENT` must be one of `prod` / `uat` / `staging` / `dev`. Alertmanager
+routes on the literal value: an unset or off-enum value misses both the prod
+channel and the dev mute, and the alert lands in the default receiver instead.
+
+`job` is set by the agent to the collector kind — `app` for everything found by
+docker SD, plus `node` / `cadvisor` / `agent` for the built-in exporters. Alert
+rules key on those four values; see `docs/metrics.md`.
 
 ## Prerequisites
 
@@ -43,7 +51,7 @@ one role become `service=<role>` split by `instance`.
 
 ```sh
 cp .env.example .env
-$EDITOR .env         # ALLOY_VERSION, APP, DEPLOYMENT, TARGET_NAME, INGEST_*
+$EDITOR .env         # ALLOY_VERSION, APP, DEPLOYMENT, ENVIRONMENT, TARGET_NAME, INGEST_*
 docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
 docker compose -f agents-alloy/docker-compose.yml logs alloy | tail   # no remote_write/loki 4xx
 ```

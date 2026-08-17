@@ -2,7 +2,10 @@ groups:
   - name: jenkins
     rules:
       - alert: JenkinsDown
-        expr: up{job="jenkins"} == 0
+        # `job` is the collector kind (app / node / cadvisor / agent), not the
+        # service name — service identity is the `service` label, set from the
+        # container's `monitoring.service` label. Inert until Jenkins is wired.
+        expr: up{job="app", service="jenkins"} == 0
         for: 2m
         labels:
           severity: critical

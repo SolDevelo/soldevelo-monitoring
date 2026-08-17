@@ -53,14 +53,8 @@ groups:
           summary: "JVM thread count growing on {{ $labels.service }}"
           description: "'{{ $labels.service }}' on {{ $labels.host }} added >50 live threads over the last 1h and is now above 100."
 
-      - alert: JvmScrapeDown
-        expr: up{job="java"} == 0
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "JVM scrape failing on {{ $labels.service }}"
-          description: "Prometheus cannot scrape '{{ $labels.instance }}' (service={{ $labels.service }}) for 2m."
+      # Scrape failure is not JVM-specific — `ServiceDown` in service_rules.yml
+      # covers every pushed target, JVM or not.
 
       - alert: HttpServerErrorRateHigh
         # Micrometer's `outcome` label buckets responses; SERVER_ERROR is 5xx.
