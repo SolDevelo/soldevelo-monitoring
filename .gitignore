@@ -11,6 +11,7 @@
 # in the base package. The dirs ship (via .gitkeep) as documented drop-zones;
 # their contents stay out of the base.
 /prometheus/targets/blackbox/*.json
+/prometheus/rules/overlay/*.yml
 /grafana/dashboards/overlay/*.json
 !**/.gitkeep
 

@@ -1,0 +1,105 @@
+# Unit tests for the absence rules. These are the rules whose failure mode is
+# silence — a broken one looks exactly like a healthy system — so they get the
+# only unit tests in the package.
+#
+# Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
+rule_files:
+  - ../rules/service_rules.yml
+  - ../rules/container_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A scraped target that starts failing. Classic `up == 0`.
+  - interval: 1m
+    name: ServiceDown fires when the scrape fails but the target is still discovered
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="reports",instance="reports"}'
+        values: "1+0x20 0+0x40"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ServiceDown
+        exp_alerts: []          # inside `for: 10m`, not yet firing
+      - eval_time: 35m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceDown
+              severity: warning
+              job: app
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              service: reports
+              instance: reports
+            exp_annotations:
+              summary: "Service not scrapeable: reports (prod)"
+              description: "Prometheus has been unable to scrape 'reports' on h1 for 10m. The container is up — the metrics endpoint is not answering."
+
+  # The case `up == 0` structurally cannot catch: the target stops being
+  # scraped at all, so there is no series left to compare against zero.
+  - interval: 1m
+    name: ServiceAbsent fires when the target stops being scraped entirely
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="reports",instance="reports"}'
+        values: "1+0x60 _x60"
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: ServiceAbsent
+        exp_alerts: []          # still reporting
+      - eval_time: 80m
+        alertname: ServiceAbsent
+        exp_alerts: []          # absent, but inside `for: 30m`
+      - eval_time: 100m
+        alertname: ServiceAbsent
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceAbsent
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              service: reports
+              instance: reports
+            exp_annotations:
+              summary: "Service stopped reporting: reports (prod)"
+              description: "'reports' on h1 was being scraped within the last 2h and no longer is — removed, renamed, or its container is gone. Resolves on its own 2h after a deliberate removal."
+
+  # Regression test for the defect this rule was rewritten to fix: Docker mints
+  # a new container id on every recreate, so a redeploy permanently orphans the
+  # old series. Without aggregating `id` and `image` away, this fires for the
+  # full lookback window on every deploy.
+  - interval: 1m
+    name: ContainerAbsent stays quiet across a redeploy that changes container id and image
+    input_series:
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "1+0x30 _x90"
+      - series: 'container_last_seen{name="reports",id="/docker/bbb",image="reports:2",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "_x31 1+0x89"
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: ContainerAbsent
+        exp_alerts: []
+
+  - interval: 1m
+    name: ContainerAbsent fires when the container is gone for good
+    input_series:
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "1+0x60 _x60"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ContainerAbsent
+        exp_alerts:
+          - exp_labels:
+              alertname: ContainerAbsent
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              name: reports
+            exp_annotations:
+              summary: "Container gone: reports on h1"
+              description: "'reports' was running on h1 within the last 2h and is no longer reported by cAdvisor."

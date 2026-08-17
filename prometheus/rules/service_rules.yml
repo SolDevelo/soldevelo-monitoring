@@ -1,0 +1,54 @@
+# Service availability under a push collection model.
+#
+# Nothing here can be expressed as `== 0` alone. When a pushing agent stops,
+# its series don't go to zero — they stop existing, and an expression with no
+# series to evaluate never fires. So availability splits three ways:
+#
+#   ServiceDown    target is scraped, but the scrape fails  -> `up == 0`
+#   ServiceAbsent  target stopped being scraped at all      -> absence
+#   AgentAbsent    the whole host stopped reporting         -> overlay, per host
+#
+# AgentAbsent is not here: it needs the deployment's host inventory, which the
+# base package doesn't know. See prometheus/rules/overlay/README.md.
+groups:
+  - name: services
+    rules:
+      - alert: ServiceDown
+        # A failing scrape usually means the metrics endpoint is unhappy
+        # (actuator 401 after a security change, timeout under load, slow
+        # /actuator/prometheus during GC) — not that users are affected. The
+        # user-facing symptom alerts (AppDown, HttpServerErrorRateHigh) page;
+        # this one is a ticket. `for: 10m` clears a rolling redeploy, where
+        # Spring Boot alone takes 60-120s per service to answer again.
+        expr: up{job="app"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service not scrapeable: {{ $labels.service }} ({{ $labels.environment }})"
+          description: "Prometheus has been unable to scrape '{{ $labels.service }}' on {{ $labels.host }} for 10m. The container is up — the metrics endpoint is not answering."
+
+      - alert: ServiceAbsent
+        # Inventory inferred from history: anything scraped in the last 2h that
+        # isn't being scraped now. Self-maintaining, no service list to keep in
+        # sync — at the cost of firing for 2h after a deliberate removal, and
+        # never firing for a service that has never once come up.
+        #
+        # Aggregate away every label that churns across a container's lifecycle
+        # (id, image, container_label_*). A label that changes on redeploy makes
+        # the old series unreachable forever and pins this alert firing for the
+        # whole window. `service` and `instance` are stable by convention.
+        expr: |
+          max by (app, deployment, environment, host, service, instance) (
+            max_over_time(up{job="app"}[2h])
+          )
+          unless
+          max by (app, deployment, environment, host, service, instance) (
+            up{job="app"}
+          )
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service stopped reporting: {{ $labels.service }} ({{ $labels.environment }})"
+          description: "'{{ $labels.service }}' on {{ $labels.host }} was being scraped within the last 2h and no longer is — removed, renamed, or its container is gone. Resolves on its own 2h after a deliberate removal."

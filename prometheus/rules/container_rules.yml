@@ -1,14 +1,29 @@
 groups:
   - name: containers
     rules:
-      - alert: ContainerNotSeen
-        expr: time() - container_last_seen{name!=""} > 300
-        for: 5m
+      - alert: ContainerAbsent
+        # cAdvisor drops the series entirely when a container is removed — the
+        # value never ages, so the old `time() - container_last_seen > 300`
+        # form could not fire (observed staleness peaks at ~60s).
+        #
+        # Aggregating to `name` is what makes this safe: container_last_seen
+        # also carries `id` and `image`, and Docker mints a new id on every
+        # recreate. Left in, every redeploy would orphan a series and pin this
+        # alert firing for the full 2h window.
+        expr: |
+          max by (app, deployment, environment, host, name) (
+            max_over_time(container_last_seen{name!=""}[2h])
+          )
+          unless
+          max by (app, deployment, environment, host, name) (
+            container_last_seen{name!=""}
+          )
+        for: 30m
         labels:
           severity: warning
         annotations:
-          summary: "Container {{ $labels.name }} not seen on {{ $labels.host }}"
-          description: "cAdvisor has not reported '{{ $labels.name }}' on {{ $labels.host }} for 5m."
+          summary: "Container gone: {{ $labels.name }} on {{ $labels.host }}"
+          description: "'{{ $labels.name }}' was running on {{ $labels.host }} within the last 2h and is no longer reported by cAdvisor."
 
       - alert: ContainerHighMemoryVsLimit
         # for: 15m (not 5m) prevents flapping when memory oscillates around

@@ -11,6 +11,9 @@ alerting:
 
 rule_files:
   - /etc/prometheus/rules/*.yml
+  # Per-deployment rules the base package can't know — host inventory for
+  # AgentAbsent, threshold overrides. See prometheus/rules/overlay/README.md.
+  - /etc/prometheus/rules/overlay/*.yml
 
 # App, host, and container metrics arrive via remote_write from the Alloy
 # agents (receiver enabled with --web.enable-remote-write-receiver). The only
