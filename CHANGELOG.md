@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-17
+
 ### Fixed
 - **Service-down alerting works again.** Four alerts had been dead since the
   move from pull to push: `InstanceDown`, `JvmScrapeDown`, `JenkinsDown` and
@@ -434,7 +436,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.1.1...v0.2.0
