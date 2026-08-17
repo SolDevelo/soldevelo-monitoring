@@ -32,7 +32,12 @@ set +a
 # or envsubst leaves the literal '${VAR}' in the output and the config is invalid.
 : "${SLACK_WEBHOOK_URL_PROD:=${SLACK_WEBHOOK_URL:-}}"
 : "${SLACK_CHANNEL_PROD:=${SLACK_CHANNEL:-}}"
-export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD
+# Dead man's switch is inert until HEARTBEAT_URL points at a real endpoint:
+# the Watchdog route defaults to a receiver that discards. See
+# docs/dead-man-switch.md.
+: "${WATCHDOG_RECEIVER:=heartbeat-disabled}"
+: "${HEARTBEAT_URL:=https://heartbeat.invalid/not-configured}"
+export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD WATCHDOG_RECEIVER HEARTBEAT_URL
 
 # Restrict envsubst to only vars defined in .env — avoids accidentally
 # expanding $PATH, $HOME etc. that appear inside templates.
@@ -40,7 +45,7 @@ var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
   | sed -E 's/=.*//' \
   | sed 's/^/$/' \
   | tr '\n' ' ')
-var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD'
+var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $WATCHDOG_RECEIVER $HEARTBEAT_URL'
 
 found_any=0
 while IFS= read -r -d '' template; do

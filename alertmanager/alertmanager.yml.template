@@ -2,13 +2,26 @@ global:
   resolve_timeout: 5m
   slack_api_url: "${SLACK_WEBHOOK_URL}"
 
+# Cadence, not channel, separates severities: critical and warning land in the
+# same Slack channel, but critical notifies fast and repeats often while
+# warning batches and repeats daily. Change a receiver here, not a rule.
 route:
   receiver: slack
-  group_by: ["alertname", "deployment", "host"]
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 6h
+  group_by: ["alertname", "app", "deployment", "environment", "host"]
+  # Default (warning) cadence — batch, digest, repeat daily.
+  group_wait: 1m
+  group_interval: 30m
+  repeat_interval: 24h
   routes:
+    # Dead man's switch. Must be the FIRST route: Watchdog carries no
+    # environment label, and anything that swallowed it would silently disable
+    # the only check on the alerting pipeline itself. See docs/dead-man-switch.md.
+    - matchers:
+        - alertname="Watchdog"
+      receiver: ${WATCHDOG_RECEIVER}
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 5m
     # Development environments are collected but never notified — dev churns on
     # every redeploy/wipe, and that noise costs the channel its signal. Flip the
     # receiver to `slack` if a deployment does want dev notifications.
@@ -26,13 +39,51 @@ route:
             - severity="critical"
           receiver: slack-prod
           group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 4h
     - matchers:
         - severity="critical"
       receiver: slack
       group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 4h
+
+inhibit_rules:
+  # A dead agent makes every series from that host disappear at once. Without
+  # this, one agent failure pages once per service, per container, per host —
+  # each naming the wrong problem. AgentAbsent fires first (shorter `for:`),
+  # which is what makes the suppression land.
+  - source_matchers:
+      - alertname="AgentAbsent"
+    target_matchers:
+      - alertname=~"ServiceDown|ServiceAbsent|ContainerAbsent|InstanceDown|HostOOMKill"
+    equal: ["app", "deployment", "environment", "host"]
+
+  # A service that isn't being scraped can't be judged by its own metrics.
+  - source_matchers:
+      - alertname="ServiceDown"
+    target_matchers:
+      - alertname=~"JenkinsDown|RabbitMQDown"
+    equal: ["app", "deployment", "environment", "host", "service"]
+
+  # Standard hygiene: the critical form of an alert mutes its warning form.
+  # Scoped by alertname so an unrelated critical can't mask a warning.
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ["alertname", "app", "deployment", "environment", "host"]
 
 receivers:
   - name: "null"
+  # Default target of the Watchdog route: accepts and discards. Repoint
+  # WATCHDOG_RECEIVER at `heartbeat` once HEARTBEAT_URL is a real endpoint —
+  # until then the dead man's switch is inert by design, not silently broken.
+  - name: heartbeat-disabled
+  - name: heartbeat
+    webhook_configs:
+      - url: "${HEARTBEAT_URL}"
+        send_resolved: false
   - name: slack
     slack_configs:
       - channel: "${SLACK_CHANNEL}"
@@ -42,7 +93,7 @@ receivers:
           {{ range .Alerts -}}
           *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
           {{ .Annotations.description }}
-          <${MONITORING_SITE}|open grafana>
+          {{ if .Annotations.runbook_url }}<{{ .Annotations.runbook_url }}|runbook> · {{ end }}<${MONITORING_SITE}|open grafana>
           {{ end }}
   - name: slack-prod
     slack_configs:
@@ -54,5 +105,5 @@ receivers:
           {{ range .Alerts -}}
           *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
           {{ .Annotations.description }}
-          <${MONITORING_SITE}|open grafana>
+          {{ if .Annotations.runbook_url }}<{{ .Annotations.runbook_url }}|runbook> · {{ end }}<${MONITORING_SITE}|open grafana>
           {{ end }}

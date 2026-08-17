@@ -1,0 +1,18 @@
+# Dead man's switch. See docs/dead-man-switch.md.
+#
+# Every other alert in this package reports a failure by sending a message, so
+# the failure mode of the alerting pipeline itself is silence — indistinguishable
+# from a healthy system. This inverts that: prove liveness continuously, and let
+# the ABSENCE of the proof be the alarm.
+#
+# Also shipped in rules_meta/ so the beat survives this Prometheus dying.
+groups:
+  - name: watchdog
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "Alerting pipeline is alive"
+          description: "This alert always fires. Its absence at the external heartbeat endpoint means the monitoring stack, its host, or its network egress is dead."

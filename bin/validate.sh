@@ -45,6 +45,13 @@ if docker run --rm -v "${REPO_ROOT}:/work:ro" --entrypoint sh "${PROM_IMG}" \
      -c 'promtool check rules /work/prometheus/rules/*.yml /work/prometheus/rules_meta/*.yml'; then
   ok "rules"; else fail "promtool check rules"; fi
 
+step "promtool test rules (absence rules)"
+# The absence rules fail silently by construction — a broken one is
+# indistinguishable from a healthy system — so their semantics are pinned here.
+if docker run --rm -v "${REPO_ROOT}:/work:ro" --entrypoint sh "${PROM_IMG}" \
+     -c 'cd /work/prometheus/tests && promtool test rules *.yml'; then
+  ok "unit tests"; else fail "promtool test rules"; fi
+
 step "promtool check config (main)"
 if docker run --rm \
      -v "${REPO_ROOT}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
@@ -64,6 +71,55 @@ step "amtool check-config"
 if docker run --rm -v "${REPO_ROOT}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
      --entrypoint amtool "${AM_IMG}" check-config /etc/alertmanager/alertmanager.yml; then
   ok "alertmanager.yml"; else fail "amtool check-config"; fi
+
+step "amtool routing (alerts reach the receiver they're labelled for)"
+# A route matcher is a literal string match — a typo, or an `environment` value
+# that drifts from the documented enum, silently sends alerts to the fallback
+# receiver instead of the prod channel or the dev mute. Nothing else catches
+# that; it looks identical to working.
+routes_bad=0
+route_expect() { # <expected-receiver> <label=value> ...
+  local want="$1"; shift
+  local got
+  got=$(docker run --rm -v "${REPO_ROOT}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+        --entrypoint amtool "${AM_IMG}" config routes test \
+        --config.file=/etc/alertmanager/alertmanager.yml "$@" 2>/dev/null | tr -d '[:space:]')
+  if [[ "${got}" == "${want}" ]]; then
+    echo "    ${*} -> ${got}"
+  else
+    echo "    ${*} -> ${got:-<none>} (expected ${want})" >&2; routes_bad=1
+  fi
+}
+route_expect "heartbeat-disabled" alertname=Watchdog
+route_expect "null"               environment=dev severity=critical
+route_expect "slack-prod"         environment=prod severity=critical
+route_expect "slack-prod"         environment=prod severity=warning
+route_expect "slack"              environment=uat severity=critical
+route_expect "slack"              environment=uat severity=warning
+# An alert with no environment label must still land somewhere visible.
+route_expect "slack"              severity=critical
+[[ "${routes_bad}" == 0 ]] && ok "routing" || fail "amtool routes test"
+
+step "environment enum (agent env + blackbox targets)"
+# The enum is load-bearing: alertmanager.yml matches these literals.
+if ENV_FILE="${ENV_FILE}" python3 - <<'PY'; then ok "environment enum"; else fail "environment enum"; fi
+import glob, json, os, re, sys
+ENUM = {"prod", "uat", "staging", "dev"}
+bad = []
+env_file = os.environ.get("ENV_FILE", ".env.example")
+m = re.search(r"^ENVIRONMENT=(.*)$", open(env_file).read(), re.M)
+if m and m.group(1).strip().strip('"\'') not in ENUM:
+    bad.append(f"{env_file}: ENVIRONMENT={m.group(1).strip()}")
+for f in glob.glob("prometheus/targets/blackbox/*.json"):
+    for entry in json.load(open(f)):
+        v = entry.get("labels", {}).get("environment")
+        if v is not None and v not in ENUM:
+            bad.append(f"{f}: environment={v}")
+for b in bad:
+    print(f"    off-enum: {b}")
+print(f"    allowed: {sorted(ENUM)}")
+sys.exit(1 if bad else 0)
+PY
 
 step "YAML parse (loki rules, loki config, provisioning, blackbox)"
 if python3 - <<'PY'; then ok "yaml"; else exit_yaml=$?; fi

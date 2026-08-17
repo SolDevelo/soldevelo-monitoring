@@ -7,6 +7,35 @@ follows [semver](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **Service-down alerting works again.** Four alerts had been dead since the
+  move from pull to push: `InstanceDown`, `JvmScrapeDown`, `JenkinsDown` and
+  `RabbitMQDown` selected on `job` values (`node`, `java`, `jenkins`,
+  `rabbitmq`) that Alloy never produces — it labels its own component names
+  (`prometheus.scrape.app`, `integrations/unix`). The agent now pins `job` to
+  the collector kind (`app` / `node` / `cadvisor` / `agent`), which is the
+  contract the rules key on. Service identity stays in `service`, so
+  `JenkinsDown` is `up{job="app", service="jenkins"}`. Two stale `job`
+  selectors in the Jenkins and Home dashboards fixed with it.
+- **`ContainerNotSeen` could never fire**, and is replaced by `ContainerAbsent`.
+  cAdvisor drops a container's series on removal rather than letting the value
+  age, so `time() - container_last_seen > 300` had nothing to evaluate
+  (observed staleness peaks around 60s). The replacement detects absence, and
+  aggregates away `id` / `image` — Docker mints a new container id on every
+  recreate, so keeping them would have fired for the whole lookback window on
+  every redeploy. Pinned by a unit test.
+- **The agent never set `environment`.** Every rule aggregates by it and
+  Alertmanager routes on it, so any deployment using the stock agent config
+  produced alerts that matched neither the prod route nor the dev mute and fell
+  through to the default receiver. Now set from `ENVIRONMENT` on both metrics
+  and logs.
+- **`environment` enum was documented as `production`/`staging`/`dev` while
+  Alertmanager routed on `prod`.** Standardised on `prod` / `uat` / `staging` /
+  `dev`, and `bin/validate.sh` now enforces it. Deployments whose targets
+  carry `environment="production"` must be updated or their prod alerts keep
+  falling through.
+- `agents-alloy` sets `hostname: ${TARGET_NAME}`, so the agent's own exporter
+  targets get a stable `instance`. Without it the container id was used, and
+  recreating the agent orphaned every series it produced.
 - Alert rules now aggregate `by (app, deployment, environment, …)`. Rules that
   aggregated `by (service, host)` (JVM, HTTP RED, PostgreSQL, host CPU,
   container restarts, all log rules) emitted alerts with no `environment`
@@ -15,6 +44,43 @@ follows [semver](https://semver.org/).
   muted. `deployment` also reaches the Slack title now.
 
 ### Added
+- **Absence detection for a push model.** When an agent stops pushing, its
+  series don't go to zero — they stop existing, and an expression with no
+  series never fires. Three new rules cover the split: `ServiceDown`
+  (`up == 0`, the target is scraped but failing), `ServiceAbsent` (scraped
+  within the last 2h and no longer), and `AgentAbsent` (the host stopped
+  reporting at all). `AgentAbsent` is driven by an explicit per-deployment host
+  inventory under `prometheus/rules/overlay/` rather than inferred from
+  history, so it also catches a host that never came up. `JvmScrapeDown` is
+  gone — `ServiceDown` covers every pushed target, JVM or not.
+- **Dead man's switch.** An always-firing `Watchdog` alert, routed first so
+  nothing can swallow it, POSTed to an external heartbeat service that notifies
+  when the beat stops. This is the only way to detect that the monitoring host,
+  its disk, or its egress died — `prometheus-meta` shares all three and dies
+  with them. Inert until `WATCHDOG_RECEIVER` / `HEARTBEAT_URL` are set; see
+  `docs/dead-man-switch.md`.
+- **Alerting-pipeline health** in `prometheus-meta`:
+  `AlertmanagerNotificationsFailing` (alerts fire but delivery fails — looks
+  exactly like quiet), `PrometheusNotificationsDropped`, and
+  `PrometheusRuleEvaluationFailing` (a rule that fails to evaluate is skipped
+  silently forever).
+- **Severity now changes cadence.** Both severities still land in the same
+  channel, but `critical` notifies in 10s and repeats every 4h while `warning`
+  batches for 1m and repeats daily. Previously the labels differed and nothing
+  downstream acted on them.
+- **Alertmanager inhibit rules** (there were none): `AgentAbsent` suppresses the
+  per-service and per-container alerts for the same host, so one dead agent
+  pages once instead of a dozen times naming the wrong problem; `ServiceDown`
+  suppresses the component-specific down alerts; and a critical alert suppresses
+  its own warning form.
+- `bin/validate.sh` gains three gates: `amtool config routes test` assertions
+  (a route matcher is a literal string match — a drifted `environment` value
+  silently redirects alerts and looks identical to working), an `environment`
+  enum check, and `promtool test rules` unit tests for the absence rules.
+- `docs/dead-man-switch.md`, `docs/silences.md` (silence deploy windows rather
+  than tuning `for:` durations around them), and a `job`-contract section in
+  `docs/metrics.md`.
+- Slack templates render `runbook_url` when an alert carries one.
 - Blackbox: per-target `module` override via a `module` label in the target JSON
   (wires up the behaviour `docs/blackbox-setup.md` already described), and an
   `http_2xx_insecure` module for DNS-independent "is the app up" probes by

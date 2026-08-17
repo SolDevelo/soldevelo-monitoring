@@ -134,6 +134,13 @@ agent that discovers its workloads and pushes in:
   [`docs/postgresql-setup.md`](docs/postgresql-setup.md),
   [`docs/jenkins-setup.md`](docs/jenkins-setup.md) — infra components.
 
+Then close the loop on the alerting itself — neither is optional for a
+deployment anyone relies on:
+- [`docs/dead-man-switch.md`](docs/dead-man-switch.md) — the stack cannot alert
+  on its own death. Set up the external heartbeat.
+- [`docs/silences.md`](docs/silences.md) — silence deploy windows instead of
+  loosening thresholds around them.
+
 ## Reverse proxy (Caddy) — works the same on laptop and EC2
 
 The stack includes Caddy in front of Grafana and the ingest endpoints. Caddy's

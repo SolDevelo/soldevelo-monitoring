@@ -38,3 +38,52 @@ groups:
         annotations:
           summary: "Alertmanager unreachable"
           description: "Alertmanager is down — alerts cannot be delivered."
+
+  - name: alerting-pipeline
+    # Everything above assumes alerts can actually be delivered. These check
+    # that assumption. Note what none of them can catch: this Prometheus is a
+    # container on the same host, same disk, same egress as the stack it
+    # watches — host death is only detectable from outside, via Watchdog.
+    rules:
+      - alert: Watchdog
+        # Second beat, from the meta instance, so the heartbeat survives the
+        # main Prometheus dying. See docs/dead-man-switch.md.
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "Alerting pipeline is alive"
+          description: "This alert always fires. Its absence at the external heartbeat endpoint means the monitoring stack, its host, or its network egress is dead."
+
+      - alert: AlertmanagerNotificationsFailing
+        # Alertmanager is up and receiving, but delivery to Slack (or any other
+        # receiver) is failing — revoked webhook, rate limit, blocked egress.
+        # Alerts fire and go nowhere, which looks exactly like quiet.
+        expr: rate(alertmanager_notifications_failed_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager cannot deliver notifications ({{ $labels.integration }})"
+          description: "Alertmanager has been failing to deliver via '{{ $labels.integration }}' for 5m — alerts are firing but not reaching anyone."
+
+      - alert: PrometheusNotificationsDropped
+        # Prometheus -> Alertmanager path is lossy: the queue overflowed or
+        # Alertmanager refused. Silent alert loss.
+        expr: rate(prometheus_notifications_dropped_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus is dropping alert notifications"
+          description: "Prometheus on {{ $labels.instance }} has been dropping alerts en route to Alertmanager for 5m."
+
+      - alert: PrometheusRuleEvaluationFailing
+        # A rule that fails to evaluate (bad expression, missing label, type
+        # error) is silently skipped forever — the alert simply never fires.
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus rule evaluation failing on {{ $labels.instance }}"
+          description: "At least one rule group on {{ $labels.instance }} failed to evaluate in the last 10m — those alerts cannot fire until it is fixed."
