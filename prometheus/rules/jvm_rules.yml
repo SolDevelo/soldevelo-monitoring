@@ -6,8 +6,8 @@ groups:
         # In a healthy app heap oscillates with GC; sitting at >85% for 10m
         # means the GC can't free enough — almost always a leak or undersize.
         expr: |
-          sum by (service, host) (jvm_memory_used_bytes{area="heap"})
-            / sum by (service, host) (jvm_memory_max_bytes{area="heap"} > 0) > 0.85
+          sum by (app, deployment, environment, service, host) (jvm_memory_used_bytes{area="heap"})
+            / sum by (app, deployment, environment, service, host) (jvm_memory_max_bytes{area="heap"} > 0) > 0.85
         for: 10m
         labels:
           severity: critical
@@ -18,7 +18,7 @@ groups:
       - alert: JvmGCThrashing
         # >25% of wall-clock time spent in GC — classic 'about to OOM' signal.
         expr: |
-          sum by (service, host) (rate(jvm_gc_pause_seconds_sum[5m])) > 0.25
+          sum by (app, deployment, environment, service, host) (rate(jvm_gc_pause_seconds_sum[5m])) > 0.25
         for: 5m
         labels:
           severity: critical
@@ -31,8 +31,8 @@ groups:
         # (dynamic proxies, code generation) can exhaust Metaspace without
         # ever filling heap.
         expr: |
-          sum by (service, host) (jvm_memory_used_bytes{area="nonheap",id=~".*[Mm]etaspace.*"})
-            / sum by (service, host) (jvm_memory_max_bytes{area="nonheap",id=~".*[Mm]etaspace.*"} > 0) > 0.9
+          sum by (app, deployment, environment, service, host) (jvm_memory_used_bytes{area="nonheap",id=~".*[Mm]etaspace.*"})
+            / sum by (app, deployment, environment, service, host) (jvm_memory_max_bytes{area="nonheap",id=~".*[Mm]etaspace.*"} > 0) > 0.9
         for: 10m
         labels:
           severity: warning
@@ -65,8 +65,8 @@ groups:
       - alert: HttpServerErrorRateHigh
         # Micrometer's `outcome` label buckets responses; SERVER_ERROR is 5xx.
         expr: |
-          sum by (service, host) (rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]))
-            / sum by (service, host) (rate(http_server_requests_seconds_count[5m])) > 0.01
+          sum by (app, deployment, environment, service, host) (rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]))
+            / sum by (app, deployment, environment, service, host) (rate(http_server_requests_seconds_count[5m])) > 0.01
         for: 5m
         labels:
           severity: critical
@@ -77,8 +77,8 @@ groups:
       - alert: HttpClientErrorRateHigh
         # 4xx often includes expected traffic (bad input, auth); threshold gentler.
         expr: |
-          sum by (service, host) (rate(http_server_requests_seconds_count{outcome="CLIENT_ERROR"}[5m]))
-            / sum by (service, host) (rate(http_server_requests_seconds_count[5m])) > 0.05
+          sum by (app, deployment, environment, service, host) (rate(http_server_requests_seconds_count{outcome="CLIENT_ERROR"}[5m]))
+            / sum by (app, deployment, environment, service, host) (rate(http_server_requests_seconds_count[5m])) > 0.05
         for: 10m
         labels:
           severity: warning
@@ -89,7 +89,7 @@ groups:
       - alert: HttpLatencyP95High
         expr: |
           histogram_quantile(0.95,
-            sum by (service, host, le) (rate(http_server_requests_seconds_bucket[5m]))
+            sum by (app, deployment, environment, service, host, le) (rate(http_server_requests_seconds_bucket[5m]))
           ) > 2
         for: 5m
         labels:

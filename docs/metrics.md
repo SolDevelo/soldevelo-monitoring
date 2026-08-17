@@ -43,6 +43,14 @@ A time series is uniquely identified by (`app`, `deployment`, `service`,
 **multiple applications** and **multiple deployments of the same application**
 side by side without series colliding or dashboards conflating them.
 
+**Alert rules must carry these labels through their aggregations.** An alert
+inherits only the labels its expression returns, so `sum by (service, host)`
+produces an alert with no `app` / `deployment` / `environment` — and
+Alertmanager routes on exactly those (`environment="prod"` to a prod channel,
+`environment="dev"` to a null receiver). A dropped label silently sends the
+alert to the fallback receiver. Always aggregate
+`by (app, deployment, environment, …)` plus whatever the rule is about.
+
 `app` and `deployment` are **always attached on the Prometheus side** (the
 target JSON `labels`, or `external_labels` / relabel from a pushing agent),
 never by the app — the same image runs in every deployment, so it cannot know

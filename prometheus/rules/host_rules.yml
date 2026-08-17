@@ -11,7 +11,7 @@ groups:
           description: "node-exporter on {{ $labels.host }} ({{ $labels.instance }}) has been unreachable for 1m."
 
       - alert: HighCPU
-        expr: 100 - (avg by (host) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        expr: 100 - (avg by (app, deployment, environment, host) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
         for: 5m
         labels:
           severity: warning

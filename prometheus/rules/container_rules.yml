@@ -38,7 +38,7 @@ groups:
         # 10m means 3+ instances. Catches OOM (when ContainerOOMKilled misses
         # on cgroup v2), healthcheck failures, and crash-on-startup uniformly.
         expr: |
-          count by (name, host) (
+          count by (app, deployment, environment, name, host) (
             count_over_time(container_start_time_seconds{name!=""}[10m])
           ) > 2
         labels:

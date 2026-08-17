@@ -7,7 +7,7 @@ groups:
     rules:
       - alert: ErrorLogsSpike
         expr: |
-          sum by (container, host) (
+          sum by (app, deployment, environment, container, host) (
             rate({container=~".+"} |~ "(?i)\\berror\\b" [5m])
           ) > 0.5
         for: 2m
@@ -31,7 +31,7 @@ groups:
     rules:
       - alert: JvmOutOfMemoryError
         expr: |
-          sum by (container, host) (
+          sum by (app, deployment, environment, container, host) (
             count_over_time({container=~".+"} |~ `java\.lang\.OutOfMemoryError` [5m])
           ) > 0
         labels:
@@ -45,7 +45,7 @@ groups:
         # differs (leak-hunt, not scale-up). Full JVM line:
         # `java.lang.OutOfMemoryError: GC overhead limit exceeded`.
         expr: |
-          sum by (container, host) (
+          sum by (app, deployment, environment, container, host) (
             count_over_time({container=~".+"} |~ `java\.lang\.OutOfMemoryError: GC overhead limit exceeded` [5m])
           ) > 0
         labels:
@@ -56,7 +56,7 @@ groups:
 
       - alert: JvmStackOverflowError
         expr: |
-          sum by (container, host) (
+          sum by (app, deployment, environment, container, host) (
             count_over_time({container=~".+"} |~ `java\.lang\.StackOverflowError` [5m])
           ) > 0
         labels:
@@ -68,7 +68,7 @@ groups:
       - alert: JvmFatalSignal
         # Catches Hotspot fatal-error preambles (SIGSEGV / native / JVM bug).
         expr: |
-          sum by (container, host) (
+          sum by (app, deployment, environment, container, host) (
             count_over_time({container=~".+"} |~ "fatal error has been detected by the Java Runtime" [5m])
           ) > 0
         labels:

@@ -6,6 +6,14 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Alert rules now aggregate `by (app, deployment, environment, …)`. Rules that
+  aggregated `by (service, host)` (JVM, HTTP RED, PostgreSQL, host CPU,
+  container restarts, all log rules) emitted alerts with no `environment`
+  label, so environment routing could not match them: production alerts fell
+  through to the default receiver and `environment="dev"` alerts were never
+  muted. `deployment` also reaches the Slack title now.
+
 ### Added
 - Blackbox: per-target `module` override via a `module` label in the target JSON
   (wires up the behaviour `docs/blackbox-setup.md` already described), and an
