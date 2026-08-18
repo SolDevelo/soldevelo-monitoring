@@ -74,9 +74,9 @@ tests:
   - interval: 1m
     name: ContainerAbsent stays quiet across a redeploy that changes container id and image
     input_series:
-      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",app="acme",deployment="d1",environment="prod",host="h1"}'
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="False",app="acme",deployment="d1",environment="prod",host="h1"}'
         values: "1+0x30 _x90"
-      - series: 'container_last_seen{name="reports",id="/docker/bbb",image="reports:2",app="acme",deployment="d1",environment="prod",host="h1"}'
+      - series: 'container_last_seen{name="reports",id="/docker/bbb",image="reports:2",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="False",app="acme",deployment="d1",environment="prod",host="h1"}'
         values: "_x31 1+0x89"
     alert_rule_test:
       - eval_time: 90m
@@ -86,7 +86,7 @@ tests:
   - interval: 1m
     name: ContainerAbsent fires when the container is gone for good
     input_series:
-      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",app="acme",deployment="d1",environment="prod",host="h1"}'
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="False",app="acme",deployment="d1",environment="prod",host="h1"}'
         values: "1+0x60 _x60"
     alert_rule_test:
       - eval_time: 100m
@@ -103,3 +103,19 @@ tests:
             exp_annotations:
               summary: "Container gone: reports on h1"
               description: "'reports' was running on h1 within the last 2h and is no longer reported by cAdvisor."
+
+  # Ephemeral containers must not alert. A bare `docker run` carries no compose
+  # project and gets a fresh random name each time, so every one would be a new
+  # series that never resolves; a `docker-compose run` one-off is expected to
+  # exit. Observed on Malawi dev: 7 such alerts in 2h, all deploy helpers.
+  - interval: 1m
+    name: ContainerAbsent ignores ephemeral containers that are expected to exit
+    input_series:
+      - series: 'container_last_seen{name="funny_elion",id="/docker/ccc",image="migrate:1",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "1+0x60 _x60"
+      - series: 'container_last_seen{name="p1_migrate_run_1",id="/docker/ddd",image="migrate:1",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="True",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "1+0x60 _x60"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ContainerAbsent
+        exp_alerts: []

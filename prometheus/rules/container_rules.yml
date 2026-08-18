@@ -10,13 +10,18 @@ groups:
         # also carries `id` and `image`, and Docker mints a new id on every
         # recreate. Left in, every redeploy would orphan a series and pin this
         # alert firing for the full 2h window.
+        #
+        # Scoped to compose-managed, long-lived containers. A bare `docker run`
+        # (no compose project) or a `docker-compose run` one-off is expected to
+        # exit — alerting on its disappearance is noise, and Docker's random
+        # names mean every one is a fresh series that never resolves.
         expr: |
           max by (app, deployment, environment, host, name) (
-            max_over_time(container_last_seen{name!=""}[2h])
+            max_over_time(container_last_seen{name!="", container_label_com_docker_compose_project!="", container_label_com_docker_compose_oneoff!="True"}[2h])
           )
           unless
           max by (app, deployment, environment, host, name) (
-            container_last_seen{name!=""}
+            container_last_seen{name!="", container_label_com_docker_compose_project!="", container_label_com_docker_compose_oneoff!="True"}
           )
         for: 30m
         labels:

@@ -6,6 +6,14 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`ContainerAbsent` no longer alerts on ephemeral containers.** A bare
+  `docker run` gets a fresh random name each time, so each one became a new
+  series that fired once and never resolved — seven such alerts in two hours on
+  one deployment, all deploy helpers. Scoped to compose-managed containers
+  (`com.docker.compose.project` present, `oneoff` not `True`), which also
+  covers `docker-compose run`. Pinned by a unit test.
+
 ## [0.5.0] — 2026-08-17
 
 ### Fixed
