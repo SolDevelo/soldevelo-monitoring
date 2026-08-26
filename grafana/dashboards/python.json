@@ -65,10 +65,10 @@
       {
         "name": "container",
         "label": "Container(s) for logs",
-        "description": "Containers whose name matches the selected service. Adjust if your naming differs.",
+        "description": "Log streams whose container label matches the selected service. Values come from Loki, not from cAdvisor's container name — the two use different vocabularies.",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(container_last_seen{name=~\".*$service.*\"}, name)", "refId": "vars" },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "type": 1, "label": "container", "stream": "{app=\"$app\", deployment=\"$deployment\", environment=~\"$environment\", container=~\".*$service.*\"}", "refId": "LokiVariableQueryEditor-VariableQuery" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,
@@ -266,7 +266,7 @@
       "options": { "showTime": true, "wrapLogMessage": false, "dedupStrategy": "none" },
       "targets": [
         {
-          "expr": "{container=~\"$container\"}",
+          "expr": "{app=\"$app\", deployment=\"$deployment\", environment=~\"$environment\", container=~\"$container\"}",
           "refId": "A"
         }
       ]

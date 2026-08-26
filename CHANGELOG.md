@@ -6,6 +6,18 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **"Container(s) for logs" now actually filters logs on the JVM and Python
+  dashboards.** The variable was populated from cAdvisor's `name`
+  (`prod_env_referencedata_1`) while the logs panel matched Loki's `container`
+  label, which the agent sets from the compose service name
+  (`referencedata`) — so every specific selection returned nothing. Only "All"
+  worked, and only by accident: its `.*$service.*` regex substring-matches the
+  service name. The variable now reads its values from Loki, so both
+  vocabularies are the same one. The logs panel also gained
+  `app`/`deployment`/`environment` matchers; without them "All" mixed UAT and
+  prod logs into one stream.
+
 ## [0.5.1] — 2026-08-26
 
 ### Added
