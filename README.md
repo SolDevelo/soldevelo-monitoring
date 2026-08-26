@@ -6,7 +6,7 @@ dashboards-as-code, pre-baked alerts wired to Slack, and a documented metric
 catalog so the same names mean the same things across projects. Deployable on
 any Linux host with Docker.
 
-**Version:** `0.5.0`. See [`CHANGELOG.md`](CHANGELOG.md).
+**Version:** `0.5.1`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in the box
 

@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-08-26
+
 ### Added
 - **Uptime % panel on the HTTP probes dashboard.** Reads
   `avg_over_time(probe_success[$__range])`, so the number follows the time
@@ -453,7 +455,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.2.0...v0.3.0
