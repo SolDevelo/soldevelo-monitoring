@@ -6,6 +6,15 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Uptime % panel on the HTTP probes dashboard.** Reads
+  `avg_over_time(probe_success[$__range])`, so the number follows the time
+  picker instead of being pinned to a fixed window — "Last 3 hours" reports 3h
+  of uptime, "Last 30 days" reports 30d. Instant query evaluated at the range
+  end, which is what makes `$__range` line up with the selected window.
+  Gaps average out rather than counting as downtime, so an outage of the
+  monitoring stack itself doesn't score against the probed service.
+
 ### Fixed
 - **`ContainerAbsent` no longer alerts on ephemeral containers.** A bare
   `docker run` gets a fresh random name each time, so each one became a new
