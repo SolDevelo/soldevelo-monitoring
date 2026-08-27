@@ -2,10 +2,23 @@ name: soldevelo-monitoring-agents
 
 # One Alloy agent per host: discover, collect, push. See README.md.
 
+# The json-file default is unlimited. Kept larger than the stack's 3 x 50m
+# because agents run on app hosts, which have the bigger disks — and this is the
+# container that must keep reporting while a host fills up: an ENOSPC tears the
+# metrics WAL mid-record, and the agent then loops on the torn segment forever
+# rather than pushing. Restarting does not clear it; the WAL has to be dropped.
+x-logging:
+  &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "7"
+
 services:
   alloy:
     image: grafana/alloy:${ALLOY_VERSION}
     restart: unless-stopped
+    logging: *default-logging
     # Pins `instance` on the agent's own exporter targets. Without it the
     # container ID is used, so recreating the agent orphans every series it
     # produced and AgentAbsent fires for a routine upgrade.

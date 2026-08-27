@@ -25,6 +25,12 @@ follows [semver](https://semver.org/).
   so there is nothing left to report the outage. Applies on container re-create,
   not restart: Docker fixes a container's log options when it is created, so
   existing containers keep growing until the next `up --force-recreate`.
+- **Agent container logs are capped at 50 MB × 7.** Larger than the stack's
+  allowance because agents run on app hosts, which have the bigger disks. An
+  ENOSPC on an agent host is worse than lost logs: it tears the metrics WAL
+  mid-record, and Alloy then loops on the torn segment (`unexpected full
+  record`) instead of pushing, which a restart does not clear — the WAL has to
+  be dropped by hand. Same re-create caveat as above.
 
 ## [0.5.1] — 2026-08-26
 
