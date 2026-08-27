@@ -17,6 +17,14 @@ follows [semver](https://semver.org/).
   vocabularies are the same one. The logs panel also gained
   `app`/`deployment`/`environment` matchers; without them "All" mixed UAT and
   prod logs into one stream.
+- **Stack container logs are capped at 50 MB × 3 per service.** Docker's
+  `json-file` default is unlimited, and the stack set no `logging:` at all, so
+  every service grew a log file forever — measured at ~24 MB/day for Loki and
+  ~6.7 MB/day for cAdvisor, 630 MB total on a host with a 29 GB root volume. A
+  monitoring stack that fills its own disk takes the disk alerting down with it,
+  so there is nothing left to report the outage. Applies on container re-create,
+  not restart: Docker fixes a container's log options when it is created, so
+  existing containers keep growing until the next `up --force-recreate`.
 
 ## [0.5.1] — 2026-08-26
 
