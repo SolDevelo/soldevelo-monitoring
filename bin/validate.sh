@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Validate the package before a release (or in CI): render templates, then
 # lint rules / configs / dashboards / compose files. Runs promtool + amtool
-# via the pinned stack images so no host installs are needed.
+# via the pinned stack images so no host installs are needed. Rendered configs
+# are restored on exit, so running this on a live host changes nothing.
 # Usage:  bin/validate.sh [path/to/.env]
 set -uo pipefail
 
@@ -35,7 +36,29 @@ fail() { echo "    FAIL: $1" >&2; FAILS+=("$1"); }
 # file_sd target dirs are per-project overlay, not base — mount an empty dir so
 # `check config` validates the base regardless of what overlay files exist.
 EMPTY_TARGETS="$(mktemp -d)"
-trap 'rm -rf "${EMPTY_TARGETS}"' EXIT
+# Rendering from .env.example would leave placeholder values in the live
+# configs, armed for the next force-recreate. Restore whatever was there.
+RENDER_BACKUP="$(mktemp -d)"
+RENDER_NEW=()
+restore_rendered() {
+  local f
+  while IFS= read -r -d '' f; do
+    f="${f#${RENDER_BACKUP}/}"
+    mv -f "${RENDER_BACKUP}/${f}" "${REPO_ROOT}/${f}"
+  done < <(find "${RENDER_BACKUP}" -type f -print0)
+  [[ ${#RENDER_NEW[@]} -gt 0 ]] && rm -f "${RENDER_NEW[@]}"
+  rm -rf "${RENDER_BACKUP}" "${EMPTY_TARGETS}"
+}
+trap restore_rendered EXIT
+while IFS= read -r -d '' t; do
+  out="${t%.template}"
+  if [[ -f "${out}" ]]; then
+    mkdir -p "${RENDER_BACKUP}/$(dirname "${out#${REPO_ROOT}/}")"
+    cp -p "${out}" "${RENDER_BACKUP}/${out#${REPO_ROOT}/}"
+  else
+    RENDER_NEW+=("${out}")
+  fi
+done < <(find "${REPO_ROOT}" -type f -name '*.template' -print0)
 
 step "Render templates from ${ENV_FILE}"
 if bin/render-configs.sh "${ENV_FILE}" >/dev/null; then ok "rendered"; else fail "render-configs.sh"; fi
@@ -138,6 +161,11 @@ print(f"    parsed {len(files)} YAML files, {bad} bad")
 sys.exit(1 if bad else 0)
 PY
 [[ "${exit_yaml:-0}" != 0 ]] && fail "YAML parse"
+
+step "loki ruler posts to Alertmanager v2"
+# Alertmanager 0.28+ has no v1 API; a bump would silently kill every log alert.
+if grep -qE '^\s*enable_alertmanager_v2:\s*true' loki/loki-config.yaml; then
+  ok "enable_alertmanager_v2"; else fail "loki ruler: enable_alertmanager_v2 missing"; fi
 
 step "JSON parse (dashboards)"
 json_bad=0
