@@ -10,9 +10,9 @@ One Grafana Alloy container per target host. It:
 - **pushes** metrics (`remote_write`) and logs to the central host's
   bearer-gated `/ingest/*` endpoints.
 
-This is the docker twin of the ILO Alloy setup — both deployments self-describe
-(compose labels here, pod annotations on k8s) and the agent discovers them. See
-`docs/remote-push-setup.md` (receiver) and `docs/metrics.md` (label contract).
+Workloads self-describe (compose labels here, `prometheus.io/*` pod annotations
+on Kubernetes) and the agent discovers them. See `docs/remote-push-setup.md`
+(receiver) and `docs/metrics.md` (label contract).
 
 ## Self-describing services
 
@@ -41,19 +41,19 @@ rules key on those four values; see `docs/metrics.md`.
 
 ## Prerequisites
 
-- The service network is `external: true` and the agent joins it
-  (`local-cfp-net` in `docker-compose.yml`) so it can reach container IPs.
-  Change that network name for another app.
-- Any service to be scraped internally must be on that network (e.g.
-  `postgres-exporter` had to join `local-cfp-net`).
+- The agent joins the app stack's docker network (`APP_NETWORK` in `.env`,
+  declared `external` in `docker-compose.yml`) so it can reach container IPs.
+  `docker network ls` shows the real name (compose v2: `<project>_default`).
+- Any service to be scraped internally must be on that network (e.g. a
+  `postgres-exporter` sidecar has to join it too).
 
 ## Deploy
 
 ```sh
 cp .env.example .env
-$EDITOR .env         # ALLOY_VERSION, APP, DEPLOYMENT, ENVIRONMENT, TARGET_NAME, INGEST_*
+$EDITOR .env         # ALLOY_VERSION, APP, DEPLOYMENT, ENVIRONMENT, TARGET_NAME, APP_NETWORK, INGEST_*
 docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
-docker compose -f agents-alloy/docker-compose.yml logs alloy | tail   # no remote_write/loki 4xx
+docker compose --env-file .env -f agents-alloy/docker-compose.yml logs alloy | tail   # no remote_write/loki 4xx
 ```
 
 Add the `monitoring.*` labels to the app's compose services and recreate them

@@ -21,9 +21,11 @@ Set the agent variables in `.env`:
 
 ```env
 ALLOY_VERSION=v1.5.1
-APP=cfp-classifier          # the application this host runs
-DEPLOYMENT=sdd              # which deployment of it (sdd, ilo, malawi, …)
-TARGET_NAME=cfp-classifier  # host slug → the `host` label
+APP=myapp                   # the application this host runs
+DEPLOYMENT=main             # which deployment of it (one value per remote site)
+ENVIRONMENT=prod            # prod | uat | staging | dev — Alertmanager routes on it
+TARGET_NAME=myapp-prod-1    # host slug → the `host` label
+APP_NETWORK=myapp_default   # the app stack's compose network (`docker network ls`)
 INGEST_METRICS_URL=https://<monitor>/ingest/prometheus/api/v1/write
 INGEST_LOGS_URL=https://<monitor>/ingest/loki/loki/api/v1/push
 INGEST_TOKEN=<bearer token from the monitoring host>
@@ -33,11 +35,11 @@ Bring it up:
 
 ```bash
 docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
-docker compose -f agents-alloy/docker-compose.yml logs alloy | tail   # no 4xx to the ingest endpoints
+docker compose --env-file .env -f agents-alloy/docker-compose.yml logs alloy | tail   # no 4xx to the ingest endpoints
 ```
 
 Host metrics (`node_*`), container metrics (`container_*`), and all container
-logs now flow, labelled `app` / `deployment` / `host`. Full runbook, network
+logs now flow, labelled `app` / `deployment` / `environment` / `host`. Full runbook, network
 prerequisites, and the compose-label convention are in
 [`agents-alloy/README.md`](../agents-alloy/README.md).
 
@@ -66,8 +68,8 @@ discovers them and scrapes their internal port. Per-technology guides:
 ## Kubernetes
 
 On k8s, Alloy runs in-cluster; workloads are onboarded with
-`prometheus.io/scrape` pod annotations instead of compose labels. The ILO EKS
-deployment is the reference.
+`prometheus.io/scrape` pod annotations instead of compose labels. The same
+label contract applies (`docs/metrics.md`).
 
 ## Common gotchas
 

@@ -55,13 +55,18 @@ services:
       - alloy-data:/var/lib/alloy
     devices:
       - /dev/kmsg
+    extra_hosts:
+      # `host.docker.internal` resolves to the Docker host on Linux — the
+      # single-machine recipe pushes through it. Inert on a real target host.
+      - "host.docker.internal:host-gateway"
     networks:
       # join the app network to reach container IPs
-      - local-cfp-net
+      - appnet
 
 volumes:
   alloy-data:
 
 networks:
-  local-cfp-net:
+  appnet:
     external: true
+    name: ${APP_NETWORK}

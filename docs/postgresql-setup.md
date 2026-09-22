@@ -20,7 +20,7 @@ postgres-exporter:
     monitoring.port: "9187"
     monitoring.service: "postgres"
   networks:
-    - local-cfp-net
+    - default            # same network as postgres; the agent joins it (APP_NETWORK)
   depends_on:
     - postgres
 ```
