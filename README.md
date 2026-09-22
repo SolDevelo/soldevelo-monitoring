@@ -1,10 +1,10 @@
 # soldevelo-monitoring
 
-Opinionated, OSS-based monitoring package for SolDevelo projects. Pre-baked
-stack (Prometheus + Loki + Grafana + Alertmanager + Blackbox), pre-baked
-dashboards-as-code, pre-baked alerts wired to Slack, and a documented metric
-catalog so the same names mean the same things across projects. Deployable on
-any Linux host with Docker.
+SolDevelo's opinionated, OSS-based monitoring package — open source, usable
+by anyone with a Linux host and Docker. Pre-baked stack (Prometheus + Loki +
+Grafana + Alertmanager + Blackbox), pre-baked dashboards-as-code, pre-baked
+alerts wired to Slack, and a documented metric catalog so the same names mean
+the same things across projects.
 
 **Version:** `0.5.1`. See [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -41,7 +41,8 @@ any Linux host with Docker.
   (the ingest endpoints), `host-setup.md` (run the agent), `blackbox-setup.md`
   (HTTP probes), `java-app-setup.md`, `python-app-setup.md`, `rabbitmq-setup.md`,
   `postgresql-setup.md`, `jenkins-setup.md` (label a service for discovery),
-  `business-metrics.md`.
+  `business-metrics.md`, `dead-man-switch.md` (external heartbeat),
+  `silences.md` (deploy windows), `releasing.md` (cutting a version).
 
 ### Dashboards (ten, all provisioned-as-code)
 
@@ -69,12 +70,17 @@ any Linux host with Docker.
 
 - **Host**: `InstanceDown`, `HighCPU`, `HighMemoryUsage`, `LowDiskSpace`,
   `HostOOMKill`.
-- **Container**: `ContainerNotSeen`, `ContainerHighMemoryVsLimit`,
-  `ContainerOOMKilled`, `ContainerRestartLoop`.
-- **HTTP probes**: `ProbeFailing`, `ProbeSlow`, `SSLCertExpiringSoon`.
+- **Service / push-model absence**: `ServiceDown` (scraped, reports down),
+  `ServiceAbsent` and `ContainerAbsent` (was reporting within 2h, no longer
+  is — under push, a dead target simply stops arriving, so `== 0` never fires),
+  `AgentAbsent` (overlay, see below).
+- **Container**: `ContainerHighMemoryVsLimit`, `ContainerOOMKilled`,
+  `ContainerRestartLoop`.
+- **HTTP probes**: `ProbeFailing`, `AppDown`, `PublicUrlUnreachable`,
+  `ProbeSlow`, `SSLCertExpiringSoon`.
 - **JVM**: `JvmHeapPressure`, `JvmGCThrashing`, `JvmMetaspacePressure`,
-  `JvmThreadGrowth`, `JvmScrapeDown`, `HttpServerErrorRateHigh`,
-  `HttpClientErrorRateHigh`, `HttpLatencyP95High`, `HikariCPPoolExhausted`.
+  `JvmThreadGrowth`, `HttpServerErrorRateHigh`, `HttpClientErrorRateHigh`,
+  `HttpLatencyP95High`, `HikariCPPoolExhausted`.
 - **RabbitMQ**: `RabbitMQDown`, `RabbitMQNoConsumers`,
   `RabbitMQQueueBacklog`, `RabbitMQDiskLow`.
 - **PostgreSQL**: `PostgreSQLDown`, `PostgreSQLTooManyConnections`,
@@ -84,8 +90,23 @@ any Linux host with Docker.
   `JenkinsQueueBacklog`, `JenkinsExecutorSaturated`.
 - **Logs**: `ErrorLogsSpike`, `JvmOutOfMemoryError`, `JvmGCOverheadLimit`,
   `JvmStackOverflowError`, `JvmFatalSignal`.
-- **Monitor self-health**: `MonitorDiskLow`, `PrometheusUnreachable`,
-  `LokiUnreachable`, `AlertmanagerUnreachable`.
+- **Monitor self-health** (Prometheus-meta): `MonitorDiskLow`,
+  `PrometheusUnreachable`, `LokiUnreachable`, `AlertmanagerUnreachable`,
+  `AlertmanagerNotificationsFailing`, `PrometheusNotificationsDropped`,
+  `PrometheusRuleEvaluationFailing`.
+- **Dead man's switch**: `Watchdog` — always firing, routed to an external
+  heartbeat ([`docs/dead-man-switch.md`](docs/dead-man-switch.md)).
+
+`AgentAbsent` is the one rule the base package cannot ship: it is
+`absent(up{job="agent", host="<host>"})` over an explicit host inventory, so
+each deployment writes its own copy in `prometheus/rules/overlay/` (gitignored;
+template and rationale in
+[`prometheus/rules/overlay/README.md`](prometheus/rules/overlay/README.md)).
+The Alertmanager inhibition chain assumes it exists — a dead agent takes every
+series from that host with it, and `AgentAbsent` is what mutes the resulting
+`ServiceDown` / `ServiceAbsent` / `ContainerAbsent` / `InstanceDown` alerts
+into one notification. A deployment that skips the overlay gets that storm
+instead, so writing the file is part of onboarding a host, not optional.
 
 Alerts labelled `environment="dev"` are routed to a null receiver: dev targets
 get dashboards, metrics and logs, but never a Slack notification. Change that
@@ -108,7 +129,9 @@ everything shares one channel.
 - `gettext` (provides `envsubst`) for the render script.
 - Network: each target host needs **outbound HTTPS (443)** to the monitoring
   host's ingest endpoints — nothing inbound. The monitoring host serves Grafana
-  and the bearer-gated `/ingest/*` paths through Caddy on 80/443.
+  and the bearer-gated `/ingest/*` paths through Caddy on 80/443
+  (`CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT`); the other stack ports bind to
+  loopback (node-exporter's `:9101` excepted — see *Reverse proxy*).
 
 ## Quickstart — monitoring host
 
@@ -117,7 +140,7 @@ cp .env.example .env
 $EDITOR .env                       # STACK-SIDE vars: MONITORING_*, GRAFANA_*, SLACK_*, INGEST_TOKEN
 bin/render-configs.sh
 docker compose --env-file .env -f stack/docker-compose.yml up -d
-xdg-open "${MONITORING_SITE:-http://localhost}"
+xdg-open http://localhost           # or whatever MONITORING_SITE you set
 ```
 
 Grafana login: whatever you set in `GRAFANA_ADMIN_*`. You'll land on the
@@ -149,21 +172,33 @@ auto-HTTPS picks behaviour from the site address in `MONITORING_SITE`:
 | `MONITORING_SITE` value | What Caddy does |
 |---|---|
 | `http://localhost` | Plain HTTP, no TLS. Default. |
-| `http://localhost:8080` | Plain HTTP on whichever port you remap to (see `CADDY_HTTP_PORT`). |
-| `localhost` | Caddy's internal CA + self-signed TLS. Browser warns until you trust the CA. |
-| `https://monitoring.example.com` | Free Let's Encrypt cert, A+ TLS, auto-renewed. Needs ports 80/443 reachable + DNS pointing to the host. |
+| `http://localhost:8080` | Plain HTTP on a remapped port. Set `CADDY_HTTP_PORT=8080` to match. |
+| `localhost` | Caddy's internal CA + self-signed TLS. Browser warns until you trust the CA. Remap: `localhost:8443` + `CADDY_HTTPS_PORT=8443`. |
+| `https://monitoring.example.com` | Free Let's Encrypt cert, A+ TLS, auto-renewed. Needs the defaults 80/443 open inbound (80 for the ACME challenge + redirect, 443 for the site) + DNS pointing to the host. |
 
 You change one env var and the same compose works locally and on a public
 EC2 with no other changes. `LETSENCRYPT_EMAIL` is used only when the site is
 a real domain.
 
-If port 80 / 443 are already taken on the host (common on dev laptops),
-remap via `CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT` and update `MONITORING_SITE`
-to include the port (`http://localhost:8080`).
+A TLS site address is also a Host filter: agents must address the stack by
+exactly that hostname, and a wrong one fails TLS loudly. The plain-HTTP forms
+are rendered as a bare `:<port>` and answer on any host name — which is what
+makes the same-machine test below work.
 
-In production, also recommend firewalling Grafana's direct port (3001 by
-default) so users have to go through Caddy. Same recommendation for
-Prometheus (9090) and Alertmanager (9093) — they have no auth.
+If port 80 / 443 are already taken on the host (common on dev laptops),
+remap via `CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT` and put the same port in
+`MONITORING_SITE` (`CADDY_HTTP_PORT=8080` + `MONITORING_SITE=http://localhost:8080`;
+self-signed: `CADDY_HTTPS_PORT=8443` + `MONITORING_SITE=localhost:8443`).
+Compose publishes the port 1:1 and Caddy listens on the port in the address,
+so the two must agree. Both ports are always published, so when 80 *and* 443
+are taken remap both, or `up` fails on the one still on its default.
+
+Caddy is the only public entry point. Prometheus (9090), Prometheus-meta
+(9091), Loki (3100), Alertmanager (9093), Blackbox (9115) and Grafana (3000)
+bind to `127.0.0.1` — reachable from the host itself (`curl localhost:9090`,
+or an SSH tunnel), never from the network; none of them has auth. The one
+non-loopback service port is the monitor's own node-exporter on `:9101` (host
+network) — firewall it on a host with a public interface.
 
 ## Quickstart — target host (the thing being monitored)
 
@@ -173,9 +208,13 @@ Each target host runs one Alloy agent:
 git clone <this repo>
 cd soldevelo-monitoring
 cp .env.example .env
-$EDITOR .env                       # AGENT-SIDE: APP, DEPLOYMENT, TARGET_NAME, INGEST_*
+$EDITOR .env                       # AGENT-SIDE: APP, DEPLOYMENT, ENVIRONMENT, TARGET_NAME, APP_NETWORK, INGEST_*
 docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
 ```
+
+`ENVIRONMENT` is one of `prod|uat|staging|dev` (Alertmanager routes on it);
+`APP_NETWORK` is the app stack's compose network (`docker network ls`, e.g.
+`myapp_default`) — the agent joins it to reach container IPs.
 
 Host + container metrics and all container logs now flow. Add compose labels to
 your app services so the agent scrapes them too. Full walkthrough:
@@ -200,21 +239,22 @@ Short version:
      monitoring.path: "/actuator/prometheus"
      monitoring.service: "scraper"
    ```
-   `app` / `deployment` / `host` come from the agent's env; `service` from the
-   label. On Kubernetes use `prometheus.io/scrape` pod annotations. Label
-   contract: [`docs/metrics.md`](docs/metrics.md).
+   `app` / `deployment` / `environment` / `host` come from the agent's env;
+   `service` from the label. On Kubernetes use `prometheus.io/scrape` pod
+   annotations. Label contract: [`docs/metrics.md`](docs/metrics.md).
 
 ## How do I know it's working?
 
 - **Grafana → SolDevelo Monitoring (home)** — alert counts, dashboard list,
   currently-firing table.
-- **Prometheus → Status → Targets** at `http://<monitor-host>:9090/targets` —
-  the `prometheus` and `blackbox_http` jobs are `UP`. App / host / container
-  metrics arrive via remote_write; query e.g. `up{deployment="<name>"}` to see
-  the pushed targets.
+- **Prometheus → Status → Targets** at `http://localhost:9090/targets` on the
+  monitoring host (loopback-only; from elsewhere,
+  `ssh -L 9090:localhost:9090 <monitor-host>`) — the `prometheus` and
+  `blackbox_http` jobs are `UP`. App / host / container metrics arrive via
+  remote_write; query e.g. `up{deployment="<name>"}` to see the pushed targets.
 - **Grafana → Explore → Loki** — `{deployment="<name>"}` shows logs streaming.
-- **Alertmanager** at `http://<monitor-host>:9093` — firing alerts, silences,
-  routing.
+- **Alertmanager** at `http://localhost:9093` on the monitoring host (same
+  tunnel trick) — firing alerts, silences, routing.
 - **Slack** — set a probe URL to something broken (e.g.
   `https://example.com/does-not-exist-x`); a `ProbeFailing` alert lands
   in `SLACK_CHANNEL` within ~2 minutes.
@@ -223,26 +263,37 @@ Short version:
 
 Run the stack and an Alloy agent on the same Docker host, and point the agent's
 `INGEST_*` at the local stack. `localhost` inside a container is the container
-itself, so use `host.docker.internal` (the compose files ship the
-`host-gateway` alias for it on Linux Docker).
+itself, so use `host.docker.internal` — both compose files carry the
+`host-gateway` alias for it, so it resolves on Linux Docker too. Only Caddy's
+port is reachable that way — the other stack ports bind to loopback — so the
+agent goes through `/ingest/*` like a remote one. This needs a plain-HTTP
+`MONITORING_SITE` (`http://localhost[:port]`), which answers on any host name;
+a TLS site matches its hostname only.
 
 On the **agent** `.env`:
 ```env
 APP=<app>
 DEPLOYMENT=local
+ENVIRONMENT=<prod|uat|staging|dev>
 TARGET_NAME=<host-slug>
+APP_NETWORK=<the app stack's compose network, e.g. myapp_default — docker network ls>
 INGEST_METRICS_URL=http://host.docker.internal/ingest/prometheus/api/v1/write
 INGEST_LOGS_URL=http://host.docker.internal/ingest/loki/loki/api/v1/push
 INGEST_TOKEN=<token from the stack .env>
 ```
 
+The agent joins `APP_NETWORK` to reach container IPs. If you remapped
+`CADDY_HTTP_PORT`, add the port to both `INGEST_*` URLs
+(`http://host.docker.internal:8080/ingest/...`).
+
 Port collision: if Grafana's `3000` clashes with something else (e.g.
-Keycloak), remap on the host side: `"3001:3000"`.
+Keycloak), change the host side of the mapping in `stack/docker-compose.yml`,
+keeping the loopback bind: `"127.0.0.1:13000:3000"`.
 
 After stack `.env` changes:
 ```bash
 bin/render-configs.sh
-docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreate prometheus caddy
+docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreate prometheus alertmanager blackbox caddy grafana
 ```
 
 ## Operating notes
@@ -262,23 +313,27 @@ docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreat
   `bin/render-configs.sh`, which applies the same read bits).
 - **Resetting state** — `docker compose down -v` wipes Prometheus, Loki, and
   Grafana data volumes. Keep a backup before doing this in anger.
-- **Public Grafana** — the Caddy service in `stack/` does TLS + reverse
-  proxy automatically. For production, firewall the direct Grafana port
-  (3001) so the only entry path is through Caddy on 80/443. Prometheus
-  (9090) and Alertmanager (9093) should similarly not be public.
-- **Secrets** — `.env` and `prometheus/targets/**/*.json` are gitignored.
-  Don't commit them.
+- **Exposure** — Caddy (TLS + reverse proxy, `CADDY_HTTP_PORT` /
+  `CADDY_HTTPS_PORT`) is the only public entry point. Prometheus,
+  Prometheus-meta, Loki, Alertmanager, Blackbox and Grafana bind to
+  `127.0.0.1`; reach them from the host (`curl localhost:9090`) or over an SSH
+  tunnel. node-exporter (`:9101`, host network) is the one non-loopback port —
+  firewall it on a host with a public interface.
+- **Secrets and per-deployment files** — `.env`,
+  `prometheus/targets/**/*.json`, `prometheus/rules/overlay/*.yml` and
+  `grafana/dashboards/overlay/*.json` are gitignored. Keep the master copies
+  in the deployment's own repo; don't commit them here.
 
 ## Conventions
 
 - **Labeling** — every series carries `app` / `deployment` / `service` /
   `host` / `environment`. `app` names the application, `deployment`
-  distinguishes multiple deployments of that same application (e.g. `sdd`,
-  `ilo`), and `service` is the component within it (no app prefix). A series
+  distinguishes multiple deployments of that same application (e.g. `acme`,
+  `globex`), and `service` is the component within it (no app prefix). A series
   is unique on (`app`, `deployment`, `service`, `instance`), which is what
   lets one instance monitor several apps and several deployments of one app
-  without collisions. `app` / `deployment` / `host` are set once by the agent;
-  `service` comes from the workload's label / annotation. Full contract:
+  without collisions. `app` / `deployment` / `environment` / `host` are set
+  once by the agent; `service` comes from the workload's label / annotation. Full contract:
   [`docs/metrics.md`](docs/metrics.md).
 - **Metric catalog** — [`docs/metrics.md`](docs/metrics.md) is the canonical
   list of metrics this package relies on, with required labels and the
@@ -303,9 +358,8 @@ badge above and the `CHANGELOG.md` heading are stamped from it by
 `bin/release.sh` — don't hand-edit them (`bin/validate.sh` fails if they drift).
 See [`docs/releasing.md`](docs/releasing.md).
 
-The roadmap markers in `IDEAS.md` (V1 / V2 / V3) describe planned *capability
-stages*, not version numbers. They're internal planning vocabulary; what
-goes on a git tag is always semver.
+The V1 / V2 / V3 markers in the Roadmap below are planned *capability
+stages*, not version numbers; what goes on a git tag is always semver.
 
 ## Roadmap
 

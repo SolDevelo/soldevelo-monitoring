@@ -6,7 +6,74 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Stack ports are loopback-only** (behaviour change). Prometheus 9090,
+  Prometheus-meta 9091, Loki 3100, Alertmanager 9093, Blackbox 9115 and Grafana
+  3000 now publish on `127.0.0.1`. The remote-write receiver and Loki's push
+  endpoint have no auth of their own — Caddy's bearer gate on `/ingest/*` was
+  always the intended path, but on a host with a public interface the raw
+  ports were open beside it. Anything that scraped or pushed to `<host>:9090`
+  / `:3100` directly stops working; point it at `/ingest/*`. From the host,
+  `curl localhost:9090` and SSH tunnels work as before. node-exporter (`:9101`,
+  host network) is the one port left non-loopback — firewall it.
+- **Caddy ports are published 1:1**, so `CADDY_HTTP_PORT=8080` actually works.
+  Host 8080 used to map to container port 80, but Caddy listens on the port in
+  `MONITORING_SITE` (`http://localhost:8080` → `:8080`), so nothing answered on
+  either side. The port in `MONITORING_SITE` must now equal the matching
+  `CADDY_*_PORT`; the README's remap recipe says so.
+- **The agent joins the app network through `APP_NETWORK`** instead of a
+  network name hardcoded in `agents-alloy/docker-compose.yml`. Existing agent
+  `.env` files must add `APP_NETWORK=<the app stack's compose network>` before
+  the next `up -d`, or compose refuses to start the agent (`docker network ls`
+  shows the name). `ENVIRONMENT` and `APP_NETWORK` are now in every agent
+  quickstart.
+- **Example values neutralised for public release.** `monitoring.example.com`,
+  `myapp` / `acme` / `globex` replace the original deployments' names in
+  `.env.example`, docs and tests, and the home dashboard no longer calls the
+  package "internal tooling". Label semantics are unchanged.
+
 ### Fixed
+- **A plain-HTTP site address no longer host-matches.** Caddy served
+  `http://localhost:8080` as a named site, so a push whose Host header was
+  anything else (`host.docker.internal`, an IP) hit Caddy's default empty 200
+  — the bearer gate was never consulted, Loki and Prometheus never saw the
+  data, and the agent logged success. `bin/render-configs.sh` now renders the
+  `http://` forms as a bare `:<port>`, which serves any Host; the TLS forms keep
+  the hostname (it is what the certificate is issued for), so agents must use
+  exactly that name — a wrong one fails TLS loudly instead of silently.
+- **Agent compose ships the `host.docker.internal` alias**, so the
+  single-machine recipe in the README works on Linux Docker — previously the
+  README claimed the alias and the agent's every push failed at DNS.
+- **`.env.example` no longer defines `INGEST_TOKEN` twice.** The agent section
+  repeated it with the placeholder; `render-configs.sh` sources the file, so the
+  last assignment won and an operator who set the stack-side one got Caddy
+  baked with the public repo's placeholder as its bearer token.
+  `render-configs.sh` now warns when `INGEST_TOKEN` or `GRAFANA_ADMIN_PASSWORD`
+  is still a placeholder.
+- **`bin/validate.sh` restores the rendered configs after the gate.** It
+  renders from `.env.example` by default, which used to overwrite the live
+  `Caddyfile`, `prometheus*.yml` and `alertmanager.yml` with example values on
+  whatever host it ran — armed for the next `--force-recreate`.
+- **Loki ruler posts to Alertmanager's v2 API** (`enable_alertmanager_v2:
+  true`). Alertmanager 0.28 removed the v1 API, so a version bump would have
+  silently killed every log alert (`ErrorLogsSpike`, the `Jvm*` log rules) —
+  the ruler logs an error and nothing reaches Slack. `bin/validate.sh` now
+  fails if the flag goes missing.
+- **README alert list matches the rule files.** It named `ContainerNotSeen`
+  (replaced by `ContainerAbsent` in 0.5.0) and `JvmScrapeDown` (removed in
+  0.5.0), and omitted `ServiceDown`, `ServiceAbsent`, `AppDown`,
+  `PublicUrlUnreachable`, `Watchdog` and the three meta notification-pipeline
+  alerts. `AgentAbsent`'s place in the overlay, and why skipping it produces
+  an alert storm, is now stated there too. The README also claimed Grafana's
+  direct port was 3001 and recommended firewalling 9090/9093 by hand; the
+  loopback binding above replaces both.
+- **Docs examples fixed.** Blackbox examples used `environment: production`,
+  which is off-enum and rejected by the gate; `tcp_connect` targets are
+  `host:port` without a `tcp://` scheme; `Watchdog` lives in
+  `prometheus/rules/watchdog.yml`, not `service_rules.yml`; the dead-man-switch
+  `amtool` check runs through the Alertmanager image like `silences.md` does;
+  `metrics.md` described `container_last_seen` in terms of the alert that could
+  never fire.
 - **"Container(s) for logs" now actually filters logs on the JVM and Python
   dashboards.** The variable was populated from cAdvisor's `name`
   (`prod_env_referencedata_1`) while the logs panel matched Loki's `container`
