@@ -43,10 +43,10 @@ metric (see `docs/metrics.md`):
 
 | Label | Example | Notes |
 |---|---|---|
-| `app` | `cfp-classifier` | The application. Attached by the Alloy agent, not app code. |
-| `deployment` | `sdd` | The deployment of that app (`sdd`, `ilo`, …). Attached by the agent. |
+| `app` | `myapp` | The application. Attached by the Alloy agent, not app code. |
+| `deployment` | `acme` | The deployment of that app (`acme`, `globex`, …). Attached by the agent. |
 | `service` | `scraper` | Short stable component slug (no app prefix). |
-| `host` | `cfp-classifier-prod` | Host slug (not IP). Attached by the agent (`TARGET_NAME`). |
+| `host` | `myapp-prod-1` | Host slug (not IP). Attached by the agent (`TARGET_NAME`). |
 | `environment` | `production` | `production` / `staging` / `dev`. |
 
 Plus whatever dimensional labels the metric itself needs (e.g. `source`,

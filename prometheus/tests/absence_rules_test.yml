@@ -107,7 +107,7 @@ tests:
   # Ephemeral containers must not alert. A bare `docker run` carries no compose
   # project and gets a fresh random name each time, so every one would be a new
   # series that never resolves; a `docker-compose run` one-off is expected to
-  # exit. Observed on Malawi dev: 7 such alerts in 2h, all deploy helpers.
+  # exit. Observed on one dev deployment: 7 such alerts in 2h, all deploy helpers.
   - interval: 1m
     name: ContainerAbsent ignores ephemeral containers that are expected to exit
     input_series:

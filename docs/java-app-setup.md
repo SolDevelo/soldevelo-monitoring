@@ -30,7 +30,7 @@ management.server.address=0.0.0.0
 management.endpoints.web.exposure.include=health,prometheus
 ```
 
-This is what the CFP Classifier `management` / `scraper` services do —
+A typical Spring Boot service does exactly this —
 actuator on `9090`, the app itself on `8080`. Don't publish `9090` to the
 host; the agent reaches it on the internal docker network.
 

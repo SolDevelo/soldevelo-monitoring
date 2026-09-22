@@ -32,10 +32,10 @@ prom-client, etc.) or it comes from an exporter — must carry these labels:
 
 | Label         | Example                | Meaning                                                            |
 | ------------- | ---------------------- | ------------------------------------------------------------------ |
-| `app`         | `cfp-classifier`       | The application / product. Groups all of its services across every deployment. |
-| `deployment`  | `sdd`                  | A specific deployment of that app. Distinguishes multiple deployments of the *same* app (e.g. `sdd` on docker-compose, `ilo` on EKS). |
+| `app`         | `myapp`                | The application / product. Groups all of its services across every deployment. |
+| `deployment`  | `acme`                 | A specific deployment of that app. Distinguishes multiple deployments of the *same* app (e.g. `acme` on docker-compose, `globex` on EKS). |
 | `service`     | `management`           | Short, stable slug for the component *within* the app (`management`, `scraper-1`, `classifier`, `postgres`, …). No app prefix — `app` / `deployment` already carry that. |
-| `host`        | `cfp-classifier`       | The host / node slug (not IP/DNS). Matches `TARGET_NAME`.          |
+| `host`        | `acme-app-01`          | The host / node slug (not IP/DNS). Matches `TARGET_NAME`.          |
 | `environment` | `prod`                 | One of `prod`, `uat`, `staging`, `dev`. **Exactly these** — Alertmanager routes on the literal value, so `production` or an unset value silently misses both the prod channel and the dev mute and falls through to the default receiver. `bin/validate.sh` enforces the enum. |
 
 A time series is uniquely identified by (`app`, `deployment`, `service`,
@@ -222,8 +222,10 @@ Source: [`gcr.io/cadvisor/cadvisor`][cadv], embedded in the Alloy agent
 - **Unit:** unix timestamp seconds
 - **Labels:** `id`, `image`, `name`, `host` (added by relabel)
 - **Means:** Most recent time cAdvisor observed this container.
-- **Used for:** `ContainerNotSeen` alert — `time() - container_last_seen > 300`
-  means the container has been gone for 5 minutes.
+- **Used for:** `ContainerAbsent` alert — a compose-managed container seen within
+  the last 2h (`max_over_time(...[2h])`) but no longer reported, for 30m. A plain
+  `time() - container_last_seen > 300` cannot fire: cAdvisor drops the series
+  when the container goes, so the value never ages.
 - **Does NOT mean:** the container is still running *right now* if the
   scrape itself failed — combine with `up{job="cadvisor"}` checks.
 
@@ -345,9 +347,9 @@ because log-derived rules and dashboards depend on them.
 
 | Label        | Set by            | Example                          |
 | ------------ | ----------------- | -------------------------------- |
-| `app`        | Alloy relabel     | `cfp-classifier`                 |
-| `deployment` | Alloy relabel     | `sdd`                            |
-| `host`       | Alloy relabel     | `cfp-classifier-prod`            |
+| `app`        | Alloy relabel     | `myapp`                          |
+| `deployment` | Alloy relabel     | `acme`                           |
+| `host`       | Alloy relabel     | `acme-app-01`                    |
 | `service`    | Alloy relabel     | `scraper`                        |
 | `container`  | Alloy (docker SD) | `classifier-api`                 |
 
@@ -360,7 +362,7 @@ minimum these fields:
 | Field         | Required | Example                                 |
 | ------------- | -------- | --------------------------------------- |
 | `level`       | yes      | `INFO` / `WARN` / `ERROR`               |
-| `service`     | yes      | `cfp-classifier-api`                    |
+| `service`     | yes      | `myapp-api`                             |
 | `message`     | yes      | `"failed to classify document"`         |
 | `timestamp`   | yes      | RFC3339 with timezone                   |
 | `request_id`  | when applicable | `9f3e...` (per-request correlation) |
@@ -469,7 +471,7 @@ note in *Required labels* above).
 
 Business metrics are project-specific and inherently *cannot* be standardised
 across projects the way RED or JVM metrics can — a "document classified" on
-CFP Classifier and an "RFP scraped" on RFPMonitor are not the same thing.
+one project and an "order shipped" on another are not the same thing.
 
 What IS standardised:
 
@@ -481,9 +483,9 @@ What IS standardised:
 
 Examples (illustrative, not prescriptive):
 
-- `cfp_documents_classified_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `classifier_version`, `result`.
-- `cfp_scrape_bytes_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `source`.
-- `cfp_queue_depth` — gauge, labels `app`, `deployment`, `service`, `host`, `environment`, `queue`.
+- `myapp_documents_processed_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `classifier_version`, `result`.
+- `myapp_ingest_bytes_total` — counter, labels `app`, `deployment`, `service`, `host`, `environment`, `source`.
+- `myapp_queue_depth` — gauge, labels `app`, `deployment`, `service`, `host`, `environment`, `queue`.
 
 A V3 cookbook will collect these patterns across projects and pull common
 shapes back into this catalog.

@@ -15,7 +15,7 @@ a service outside this infrastructure, which alerts you when the beat stops.
 
 ## How it works
 
-`Watchdog` (`expr: vector(1)`, in both `prometheus/rules/service_rules.yml` and
+`Watchdog` (`expr: vector(1)`, in both `prometheus/rules/watchdog.yml` and
 `prometheus/rules_meta/meta_rules.yml`) fires permanently. Alertmanager routes
 it — first, before the environment routes, so nothing can swallow it — to a
 webhook receiver that POSTs to an external heartbeat endpoint every 5 minutes.
@@ -49,7 +49,8 @@ Prometheus dying.
 6. Verify — the heartbeat service should show a ping within 5 minutes:
 
    ```sh
-   amtool --alertmanager.url=http://localhost:9093 config routes test alertname=Watchdog
+   docker run --rm --network host --entrypoint amtool prom/alertmanager:v0.27.0 \
+     --alertmanager.url=http://localhost:9093 config routes test alertname=Watchdog
    # expect: heartbeat
    ```
 

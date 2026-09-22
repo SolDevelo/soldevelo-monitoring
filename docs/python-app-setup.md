@@ -64,7 +64,7 @@ from prometheus_client import start_http_server
 start_http_server(9000)   # exposes /metrics on :9000
 ```
 
-This is what the CFP Classifier `classifier` workers do — `/metrics` on `9000`.
+A typical Python worker does exactly this — `/metrics` on `9000`.
 Add your own counters/gauges alongside (see [`business-metrics.md`](business-metrics.md)).
 
 ## 3. Label the service for discovery

@@ -2,33 +2,34 @@
 
 Blackbox probes are the "is this URL alive?" check. They hit each target
 URL from the monitoring host and record success, latency, and SSL cert
-expiry. Configure by dropping JSON files in `prometheus/targets/blackbox/`.
+expiry. Configure by dropping JSON files in `prometheus/targets/blackbox/` (`*.json`
+there is gitignored — keep the master copy with your deployment).
 
 ## Format
 
-`prometheus/targets/blackbox/malawi.json`:
+`prometheus/targets/blackbox/acme.json`:
 ```json
 [
   {
     "targets": [
-      "https://openlmis.example.mw",
-      "https://openlmis.example.mw/api/health",
-      "https://reporting.example.mw"
+      "https://app.example.com",
+      "https://app.example.com/api/health",
+      "https://reports.example.com"
     ],
     "labels": {
-      "app": "openlmis",
-      "deployment": "malawi",
-      "environment": "production"
+      "app": "myapp",
+      "deployment": "acme",
+      "environment": "prod"
     }
   },
   {
     "targets": [
-      "https://uat.openlmis.example.mw",
-      "https://uat.openlmis.example.mw/api/health"
+      "https://uat.app.example.com",
+      "https://uat.app.example.com/api/health"
     ],
     "labels": {
-      "app": "openlmis",
-      "deployment": "malawi",
+      "app": "myapp",
+      "deployment": "acme",
       "environment": "uat"
     }
   }
@@ -39,19 +40,23 @@ Each entry's `labels` apply to all URLs in that entry's `targets` list.
 Multiple entries let you tag different URLs with different labels. The
 `instance` label on the resulting metrics is set to the URL itself. Tag
 probes with the `app` / `deployment` they belong to so probe results line up
-with that deployment's other metrics — e.g. probing the `ilo` deployment's
-public endpoints would use `app: cfp-classifier`, `deployment: ilo`.
+with that deployment's other metrics — use the same values its agents send.
+`environment` must be one of `prod`, `uat`, `staging`, `dev`; `bin/validate.sh`
+rejects anything else.
 
 Prometheus hot-reloads within 30 seconds. Verify at
-`http://<monitor>:9090/targets` — the `blackbox_http` job lists every URL,
+`http://localhost:9090/targets` on the monitoring host (the port is
+loopback-only) — the `blackbox_http` job lists every URL,
 each with `UP` / `DOWN` status.
 
 ## What you get, automatically
 
 - **HTTP probes dashboard** — probe success status per URL, request
   duration, SSL certificate days remaining.
-- **Alerts** — `ProbeFailing` (2m of non-2xx), `ProbeSlow` (>3s for 5m),
-  `SSLCertExpiringSoon` (<14 days) — fire on any newly-added URL.
+- **Alerts** — `ProbeSlow` (>3s for 5m) and `SSLCertExpiringSoon` (<14 days)
+  fire on any newly-added URL. `ProbeFailing` (2m of failed probes) covers URLs
+  without a `check` label; tagged ones are handled by `AppDown` /
+  `PublicUrlUnreachable` (see below).
 
 ## Probing behaviour
 
@@ -65,7 +70,7 @@ TCP-only, etc.), `blackbox/blackbox.yml` defines several modules:
   redirect-follow, no cert-name verify — for DNS-independent "is the app up"
   probes (pair it with a normal `http_2xx` probe of the public URL).
 - `http_2xx_post` — POST instead of GET.
-- `tcp_connect` — TCP handshake only, no HTTP.
+- `tcp_connect` — TCP handshake only, no HTTP. Target is `host:port`, no scheme.
 - `icmp` — ping (needs the container to run with cap_net_raw).
 
 To use a non-default module, add a `module` label to the target entry.
@@ -74,11 +79,11 @@ It's picked up by the scrape config's relabel rules:
 ```json
 [
   {
-    "targets": ["tcp://redis.example.com:6379"],
+    "targets": ["redis.example.com:6379"],
     "labels": {
-      "app": "openlmis",
-      "deployment": "malawi",
-      "environment": "production",
+      "app": "myapp",
+      "deployment": "acme",
+      "environment": "prod",
       "module": "tcp_connect"
     }
   }
@@ -128,7 +133,8 @@ Leave `check` off for ordinary probes; `ProbeFailing` covers those.
 - **Probe shows DOWN with `SSL certificate problem`** — cert is
   self-signed, expired, or hostname mismatch. Legitimate signal if the
   cert really is bad; if you want to allow self-signed for internal URLs,
-  add `fail_if_ssl: false` in a custom module in `blackbox/blackbox.yml`.
+  add `tls_config: {insecure_skip_verify: true}` in a custom module in
+  `blackbox/blackbox.yml` (as `http_2xx_insecure` does).
 - **`SSLCertExpiringSoon` fires when the cert is fine** — probably a chain
   issue (an intermediate cert closer to expiry than the leaf). Renew the
   full chain, not just the leaf.

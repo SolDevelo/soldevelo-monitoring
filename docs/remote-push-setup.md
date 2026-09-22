@@ -59,16 +59,16 @@ From any machine that can reach the site (substitute your token):
 curl -sS -w '\n%{http_code}\n' \
   -H "Authorization: Bearer $INGEST_TOKEN" \
   -H "Content-Type: application/json" \
-  "https://sdd-monitoring.soldevelo.com/ingest/loki/loki/api/v1/push" \
-  --data-raw '{"streams":[{"stream":{"app":"cfp-classifier","deployment":"ilo","service":"smoke-test"},"values":[["'"$(date +%s%N)"'","hello from remote push"]]}]}'
+  "https://monitoring.example.com/ingest/loki/loki/api/v1/push" \
+  --data-raw '{"streams":[{"stream":{"app":"myapp","deployment":"main","service":"smoke-test"},"values":[["'"$(date +%s%N)"'","hello from remote push"]]}]}'
 
 # Same URL without the header should return 401.
 ```
 
 - A successful Loki push then shows up in **Grafana → Explore → Loki** with
-  `{deployment="ilo"}`.
+  `{deployment="main"}`.
 - For metrics, once an Alloy agent is remote-writing, its series appear in
-  **Prometheus → Graph** (e.g. `up{deployment="ilo"}`) and in the dashboards
+  **Prometheus → Graph** (e.g. `up{deployment="main"}`) and in the dashboards
   under the new `deployment` value.
 
 ## Labeling

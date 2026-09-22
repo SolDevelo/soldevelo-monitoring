@@ -15,7 +15,7 @@
       "transparent": true,
       "options": {
         "mode": "markdown",
-        "content": "# SolDevelo Monitoring\n\nOpinionated, OSS-based monitoring for SolDevelo projects. Use the dashboards on the right to navigate — start with **Active alerts** if you're chasing an incident, **Host overview** or **Containers** for capacity questions, **JVM application** for any Java service.\n\nMetric definitions and conventions: `docs/metrics.md`. Java onboarding: `docs/java-app-setup.md`."
+        "content": "# SolDevelo Monitoring\n\nOpinionated, OSS-based monitoring package, published by SolDevelo for anyone to run. Use the dashboards on the right to navigate — start with **Active alerts** if you're chasing an incident, **Host overview** or **Containers** for capacity questions, **JVM application** for any Java service.\n\nMetric definitions and conventions: `docs/metrics.md`. Java onboarding: `docs/java-app-setup.md`."
       }
     },
     {
@@ -211,7 +211,7 @@
       "transparent": true,
       "options": {
         "mode": "markdown",
-        "content": "---\n\n*Package: soldevelo-monitoring · Internal SolDevelo tooling · Configs live in the package repo under `prometheus/`, `loki/`, `grafana/`*"
+        "content": "---\n\n*Package: soldevelo-monitoring · Open source (MIT), maintained by SolDevelo · Configs live in the package repo under `prometheus/`, `loki/`, `grafana/`*"
       }
     }
   ]
