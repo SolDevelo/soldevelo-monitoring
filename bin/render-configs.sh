@@ -39,13 +39,37 @@ set +a
 : "${HEARTBEAT_URL:=https://heartbeat.invalid/not-configured}"
 export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD WATCHDOG_RECEIVER HEARTBEAT_URL
 
+# Caddy site address. A plain-http MONITORING_SITE is served as a bare `:port`
+# so any Host header reaches the site (a named site answers a foreign Host with
+# an empty 200 and the push is silently dropped). TLS forms keep the hostname —
+# it is what the certificate is issued for. Agent-only .env files have no
+# MONITORING_SITE; the Caddyfile they render is unused.
+if [[ "${MONITORING_SITE:-}" == http://* ]]; then
+  hostport="${MONITORING_SITE#http://}"; hostport="${hostport%%/*}"
+  port="${hostport##*:}"
+  [[ "${port}" == "${hostport}" ]] && port=80
+  CADDY_SITE=":${port}"
+else
+  CADDY_SITE="${MONITORING_SITE:-}"
+fi
+export CADDY_SITE
+
+# Placeholders from .env.example. Warn only: validate.sh renders the example on
+# purpose, but on a monitoring host these are the public repo's defaults.
+if [[ "${INGEST_TOKEN:-}" == changeme* ]]; then
+  echo "WARNING: INGEST_TOKEN is the placeholder — Caddy will accept the public default as the bearer token (openssl rand -hex 32)" >&2
+fi
+if [[ "${GRAFANA_ADMIN_PASSWORD:-}" == "changeme" ]]; then
+  echo "WARNING: GRAFANA_ADMIN_PASSWORD is the placeholder 'changeme'" >&2
+fi
+
 # Restrict envsubst to only vars defined in .env — avoids accidentally
 # expanding $PATH, $HOME etc. that appear inside templates.
 var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
   | sed -E 's/=.*//' \
   | sed 's/^/$/' \
   | tr '\n' ' ')
-var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $WATCHDOG_RECEIVER $HEARTBEAT_URL'
+var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE'
 
 found_any=0
 while IFS= read -r -d '' template; do

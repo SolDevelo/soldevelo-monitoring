@@ -1,16 +1,23 @@
 # Caddy reverse proxy in front of Grafana. Auto-HTTPS based on site address:
 #   http://localhost            → plain HTTP, no TLS (safe default for local)
+#   http://localhost:8080       → same, on a remapped port (CADDY_HTTP_PORT=8080)
 #   localhost                   → Caddy's internal CA, self-signed TLS
 #   monitoring.example.com      → Let's Encrypt cert, auto-renewed
 #
-# The site address comes from ${MONITORING_SITE} (rendered from .env by
-# bin/render-configs.sh). Email is only used by Let's Encrypt.
+# ${CADDY_SITE} is derived from MONITORING_SITE by bin/render-configs.sh: a
+# plain-http form becomes a bare `:<port>` so Caddy serves any Host (a request
+# whose Host does not match a named site gets an empty 200 — never the bearer
+# gate); the TLS forms stay verbatim, since the hostname is what the cert is
+# issued for, so agents must address the stack by exactly that name. The
+# address sets the listen port; compose publishes CADDY_HTTP_PORT/
+# CADDY_HTTPS_PORT 1:1, so a port in the address must equal the matching
+# CADDY_*_PORT. Email is only used by Let's Encrypt.
 
 {
     email ${LETSENCRYPT_EMAIL}
 }
 
-${MONITORING_SITE} {
+${CADDY_SITE} {
     encode gzip
 
     # Bearer-gated remote push; handle_path strips the prefix. docs/remote-push-setup.md
