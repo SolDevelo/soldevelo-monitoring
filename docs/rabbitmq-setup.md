@@ -46,8 +46,11 @@ rabbitmq:
 
 `app` / `deployment` / `environment` / `host` come from the agent's env, so a
 second deployment's broker stays separate automatically. `monitoring.service`
-is what `RabbitMQDown` selects on (`up{job="app", service="rabbitmq"}`) — the
-alert is inert without it.
+is what `RabbitMQDown` selects on (`up{job="app", service="rabbitmq"}`) and
+what every panel of the RabbitMQ dashboard is scoped to (`service="rabbitmq"`)
+— both are inert without it, and the name is fixed: Spring apps' Micrometer
+`rabbitmq_*` series share metric names with the exporter's, and `service` is
+what keeps them apart.
 
 ## 3. What you get
 

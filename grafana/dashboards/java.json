@@ -32,9 +32,10 @@
       {
         "name": "environment",
         "label": "Environment",
+        "description": "Values from up{job=\"app\"}, which the agent synthesises — never from application series, whose environment an app can override (Micrometer common tag). The Loki logs panel filters on this value, and Loki only knows the agent's.",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(jvm_memory_used_bytes{app=\"$app\", deployment=\"$deployment\"}, environment)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(up{job=\"app\", app=\"$app\", deployment=\"$deployment\"}, environment)", "refId": "vars" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,
@@ -131,7 +132,7 @@
       "options": { "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "expr": "sum(rate(jvm_gc_pause_seconds_sum{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m]))",
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m])) OR vector(0)",
           "refId": "A"
         }
       ]
@@ -318,12 +319,12 @@
       },
       "targets": [
         {
-          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\",outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m]))",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\",outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m])) OR vector(0)",
           "legendFormat": "5xx",
           "refId": "A"
         },
         {
-          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\",outcome=\"CLIENT_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m]))",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\",outcome=\"CLIENT_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m])) OR vector(0)",
           "legendFormat": "4xx",
           "refId": "B"
         }
@@ -333,7 +334,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "HTTP latency (p50 / p95 / p99)",
-      "description": "Request-duration percentiles from the http_server_requests_seconds histogram. p95 > 2s for 5m triggers HttpLatencyP95High.",
+      "description": "Request-duration percentiles from the http_server_requests_seconds histogram. p95 > 2s for 5m triggers HttpLatencyP95High. Spring Boot exports no buckets by default — then only the max line has data; enable management.metrics.distribution.percentiles-histogram.http.server.requests=true (docs/java-app-setup.md).",
       "gridPos": { "x": 16, "y": 27, "w": 8, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s" } },
@@ -352,6 +353,11 @@
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"}[5m])))",
           "legendFormat": "p99",
           "refId": "C"
+        },
+        {
+          "expr": "max(http_server_requests_seconds_max{app=\"$app\",deployment=\"$deployment\",environment=~\"$environment\",service=\"$service\",instance=~\"$instance\"})",
+          "legendFormat": "max, no histogram",
+          "refId": "D"
         }
       ]
     },

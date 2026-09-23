@@ -32,9 +32,10 @@
       {
         "name": "environment",
         "label": "Environment",
+        "description": "Values from up{job=\"app\"}, which the agent synthesises — never from application series, whose environment an app can override (Micrometer common tag). The Loki logs panel filters on this value, and Loki only knows the agent's.",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(python_info{app=\"$app\", deployment=\"$deployment\"}, environment)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(up{job=\"app\", app=\"$app\", deployment=\"$deployment\"}, environment)", "refId": "vars" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,

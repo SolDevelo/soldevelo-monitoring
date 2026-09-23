@@ -34,9 +34,10 @@
       {
         "name": "container",
         "label": "Container",
+        "description": "Compose service names, read from Loki's container label so the logs panel matches. cAdvisor names containers differently (prod_env_referencedata_1), so the metric panels match on container_label_com_docker_compose_service.",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(container_last_seen{host=\"$host\",name!=\"\"}, name)", "refId": "vars" },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "type": 1, "label": "container", "stream": "{host=\"$host\", environment=~\"$environment\"}", "refId": "LokiVariableQueryEditor-VariableQuery" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,
@@ -64,7 +65,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -89,7 +90,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"})",
+          "expr": "sum by (name) (container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -103,7 +104,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "count(time() - container_last_seen{host=\"$host\",environment=~\"$environment\",name!=\"\"} < 60)",
+          "expr": "count(time() - container_last_seen{host=\"$host\",environment=~\"$environment\",name!=\"\"} < 60) OR vector(0)",
           "refId": "A"
         }
       ]
@@ -117,7 +118,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"})",
+          "expr": "sum(container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
           "refId": "A"
         }
       ]
@@ -131,7 +132,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"}[5m]))",
           "refId": "A"
         }
       ]
@@ -155,7 +156,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -180,7 +181,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",name=~\"$container\",name!=\"\"}[5m]))",
+          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"}[5m]))",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

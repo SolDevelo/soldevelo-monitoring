@@ -24,7 +24,7 @@
         "label": "Queue",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(rabbitmq_queue_messages{host=\"$host\"}, queue)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(rabbitmq_queue_messages{host=\"$host\",service=\"rabbitmq\"}, queue)", "refId": "vars" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,
@@ -56,7 +56,7 @@
       },
       "options": { "colorMode": "background", "graphMode": "none" },
       "targets": [
-        { "expr": "rabbitmq_identity_info{host=\"$host\"}", "refId": "A" }
+        { "expr": "rabbitmq_identity_info{host=\"$host\",service=\"rabbitmq\"}", "refId": "A" }
       ]
     },
     {
@@ -68,7 +68,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "sum(rabbitmq_queue_messages{host=\"$host\"})", "refId": "A" }
+        { "expr": "sum(rabbitmq_queue_messages{host=\"$host\",service=\"rabbitmq\"}) OR vector(0)", "refId": "A" }
       ]
     },
     {
@@ -79,7 +79,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "rabbitmq_connections{host=\"$host\"}", "refId": "A" }
+        { "expr": "rabbitmq_connections{host=\"$host\",service=\"rabbitmq\"}", "refId": "A" }
       ]
     },
     {
@@ -90,7 +90,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "options": { "colorMode": "value", "graphMode": "area" },
       "targets": [
-        { "expr": "sum(rabbitmq_queue_consumers{host=\"$host\"})", "refId": "A" }
+        { "expr": "sum(rabbitmq_queue_consumers{host=\"$host\",service=\"rabbitmq\"}) OR vector(0)", "refId": "A" }
       ]
     },
     {
@@ -102,7 +102,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rabbitmq_queue_messages{host=\"$host\",queue=~\"$queue\"}",
+          "expr": "rabbitmq_queue_messages{host=\"$host\",service=\"rabbitmq\",queue=~\"$queue\"}",
           "legendFormat": "{{queue}}",
           "refId": "A"
         }
@@ -117,12 +117,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_published_total{host=\"$host\",queue=~\"$queue\"}[5m]))",
+          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_published_total{host=\"$host\",service=\"rabbitmq\",queue=~\"$queue\"}[5m]))",
           "legendFormat": "{{queue}} publish",
           "refId": "A"
         },
         {
-          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_delivered_total{host=\"$host\",queue=~\"$queue\"}[5m]))",
+          "expr": "sum by (queue) (rate(rabbitmq_queue_messages_delivered_total{host=\"$host\",service=\"rabbitmq\",queue=~\"$queue\"}[5m]))",
           "legendFormat": "{{queue}} deliver",
           "refId": "B"
         }
@@ -137,7 +137,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rabbitmq_queue_consumers{host=\"$host\",queue=~\"$queue\"}",
+          "expr": "rabbitmq_queue_consumers{host=\"$host\",service=\"rabbitmq\",queue=~\"$queue\"}",
           "legendFormat": "{{queue}}",
           "refId": "A"
         }
@@ -152,7 +152,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rabbitmq_queue_messages_unacked{host=\"$host\",queue=~\"$queue\"}",
+          "expr": "rabbitmq_queue_messages_unacked{host=\"$host\",service=\"rabbitmq\",queue=~\"$queue\"}",
           "legendFormat": "{{queue}}",
           "refId": "A"
         }
@@ -167,7 +167,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "rabbitmq_process_resident_memory_bytes{host=\"$host\"}",
+          "expr": "rabbitmq_process_resident_memory_bytes{host=\"$host\",service=\"rabbitmq\"}",
           "legendFormat": "resident",
           "refId": "A"
         }
@@ -182,7 +182,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "rabbitmq_disk_space_available_bytes{host=\"$host\"}",
+          "expr": "rabbitmq_disk_space_available_bytes{host=\"$host\",service=\"rabbitmq\"}",
           "legendFormat": "free",
           "refId": "A"
         }

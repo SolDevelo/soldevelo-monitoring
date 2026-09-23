@@ -8,6 +8,10 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    jsonData:
+      # slowest collector: node / cAdvisor scrape at Alloy's default 60s. Sets
+      # the floor of $__rate_interval (4x) so rate() always spans >= 2 samples.
+      timeInterval: 60s
 
   - name: Prometheus-Meta
     uid: prometheus-meta

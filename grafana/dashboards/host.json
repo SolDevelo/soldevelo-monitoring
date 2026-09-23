@@ -106,12 +106,12 @@
       "fieldConfig": { "defaults": { "unit": "Bps" } },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
+          "expr": "rate(node_network_receive_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[$__rate_interval])",
           "legendFormat": "{{device}} rx",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[1m])",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"$host\",environment=~\"$environment\",device!~\"lo|docker.*|veth.*|br-.*\"}[$__rate_interval])",
           "legendFormat": "{{device}} tx",
           "refId": "B"
         }
