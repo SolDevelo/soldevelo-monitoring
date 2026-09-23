@@ -1,0 +1,29 @@
+# Same gate as a local `bin/validate.sh` run (validates against .env.example).
+name: validate
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # envsubst (gettext-base) for render-configs.sh; PyYAML for the YAML step.
+      # docker, compose v2, jq and python3 ship with the runner image.
+      - name: Install gate prerequisites
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gettext-base python3-yaml
+
+      - name: Run validation gate
+        run: bin/validate.sh

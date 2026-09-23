@@ -31,7 +31,12 @@ bin/validate.sh path/.env  # validate a specific deployment's config instead
 
 Renders the templates, then lints Prometheus rules + config, Alertmanager
 config, Loki/provisioning YAML, dashboard JSON, the version badge, and both
-compose files. This is the release gate; run it in CI too.
+compose files. This is the release gate.
+
+CI runs the same gate on every push to `main`, every pull request and every
+`v*` tag (`.github/workflows/validate.yml`), so a red check means the script
+would fail locally too. The two placeholder `WARNING`s in the CI log are
+expected — CI validates `.env.example`, which carries placeholder secrets.
 
 ## Cut a release
 
