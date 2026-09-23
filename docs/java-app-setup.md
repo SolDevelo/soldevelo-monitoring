@@ -28,7 +28,16 @@ separate management port that isn't behind the app's security filter:
 management.server.port=9090
 management.server.address=0.0.0.0
 management.endpoints.web.exposure.include=health,prometheus
+# Latency histogram buckets. Without this Spring Boot exports only
+# http_server_requests_seconds_{count,sum,max}: the JVM dashboard's p50/p95/p99
+# stay empty (the "max, no histogram" line is all you get) and the
+# HttpLatencyP95High alert can never fire.
+management.metrics.distribution.percentiles-histogram.http.server.requests=true
 ```
+
+The histogram adds ~70 `_bucket` series per `uri` × `method` × `status`
+combination — fine for a service with tens of endpoints; watch the series
+count on one with hundreds.
 
 A typical Spring Boot service does exactly this —
 actuator on `9090`, the app itself on `8080`. Don't publish `9090` to the
@@ -50,7 +59,8 @@ services:
 
 `monitoring.service` becomes the `service` label. `app` / `deployment` / `host`
 are set once by the agent (`APP` / `DEPLOYMENT` / `TARGET_NAME`), never per
-service. Replicas of one role share `service` and differ by `instance` (the
+service. Don't set `app` / `deployment` / `environment` / `host` as Micrometer
+common tags — the agent drops them from scraped series and stamps its own. Replicas of one role share `service` and differ by `instance` (the
 compose service name). On Kubernetes use pod-template annotations instead —
 see [`kubernetes-setup.md`](kubernetes-setup.md). Contract: [`metrics.md`](metrics.md).
 
@@ -92,5 +102,8 @@ Then Grafana → **JVM application** → pick your `deployment` / `service`.
   actuator to `localhost`. Set `management.server.address=0.0.0.0` (required
   whenever `management.server.port` is set — it defaults to loopback), and make
   sure the agent shares the app's docker network.
+- **Latency panel shows only "max, no histogram" / `HttpLatencyP95High` never
+  fires** — no `_bucket` series. Enable the percentiles-histogram property
+  (section 2).
 - **Dashboard empty though metrics arrive** — you selected an `app` /
   `deployment` / `service` with no series; check the labels resolve.

@@ -58,14 +58,20 @@ which deployment it is. `service` is a target label, so an app-side `service`
 (Micrometer common tag) is kept as `exported_service` and the agent's wins. But
 `app` / `deployment` / `environment` / `host` are remote_write
 `external_labels` on both agents, and those never overwrite a label already on
-a series — a workload that emits its own `environment` keeps it and escapes the
-Alertmanager routing. Do not emit any of these from app code (see *Reserved
-labels* below).
+a series — a workload that emitted its own `environment` used to keep it and
+escape the Alertmanager routing. Since 0.6.1 both agents drop these four from
+every `job="app"` series before pushing (see *Reserved labels* below), so an
+app-side value never reaches the stack. Still, do not emit them from app code.
 
 ### Reserved labels (don't set in app code)
 
 These are populated automatically by Prometheus, the agents, or the package's
-configs. Don't override them.
+configs. Don't override them. `app` / `deployment` / `environment` / `host` are
+enforced: a `prometheus.relabel` stage between the `job="app"` scrape and
+remote_write drops them from every scraped series (a Spring `environment=
+"production"` common tag included), and `external_labels` re-attaches the
+agent's values. `service` / `instance` are not dropped — an app-side `service`
+becomes `exported_service` as before.
 
 | Label      | Set by                            | Notes                                |
 | ---------- | --------------------------------- | ------------------------------------ |

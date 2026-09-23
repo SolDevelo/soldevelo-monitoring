@@ -85,9 +85,24 @@ data:
     // here. Never let it default to the Alloy component name. See docs/metrics.md.
     prometheus.scrape "app" {
       targets         = discovery.relabel.app.output
-      forward_to      = [prometheus.remote_write.central.receiver]
+      forward_to      = [prometheus.relabel.app.receiver]
       job_name        = "app"
       scrape_interval = "15s"
+    }
+
+    // Apps must not carry the deployment identity themselves: remote_write
+    // external_labels never overwrite a label already on a series, so an app-side
+    // `environment="production"` (a Micrometer common tag) would bypass the enum,
+    // the Alertmanager routing and every dashboard filter. Drop them here; the
+    // agent's values are re-attached by external_labels below. Only the app scrape
+    // needs this — node / cadvisor / agent series cannot carry them.
+    prometheus.relabel "app" {
+      forward_to = [prometheus.remote_write.central.receiver]
+
+      rule {
+        action = "labeldrop"
+        regex  = "^(app|deployment|environment|host)$"
+      }
     }
 
     // metrics: cluster / workload state
