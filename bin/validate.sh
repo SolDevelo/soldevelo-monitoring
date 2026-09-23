@@ -23,6 +23,9 @@ set -a; # shellcheck disable=SC1090
 source "${ENV_FILE}"; set +a
 PROM_IMG="prom/prometheus:${PROMETHEUS_VERSION:?set PROMETHEUS_VERSION in ${ENV_FILE}}"
 AM_IMG="prom/alertmanager:${ALERTMANAGER_VERSION:?set ALERTMANAGER_VERSION in ${ENV_FILE}}"
+# Kubernetes manifest linter; pinned here, not in .env (nothing deploys it).
+KUBECONFORM_IMG="ghcr.io/yannh/kubeconform:v0.6.7"
+KUBECONFORM_K8S_VERSION="1.31.0"
 
 for bin in docker python3 jq; do
   command -v "${bin}" >/dev/null || { echo "ERROR: ${bin} not installed" >&2; exit 2; }
@@ -188,6 +191,31 @@ if readme.group(1) != changelog.group(1):
     print(f"    README {readme.group(1)} != CHANGELOG {changelog.group(1)}"); sys.exit(1)
 print(f"    both at {readme.group(1)}"); sys.exit(0)
 PY
+
+step "kubernetes agent (kubeconform + alloy fmt + image pin)"
+K8S_DIR="${REPO_ROOT}/agents-alloy/kubernetes"
+if docker run --rm -v "${K8S_DIR}:/w:ro" "${KUBECONFORM_IMG}" -strict -summary \
+     -kubernetes-version "${KUBECONFORM_K8S_VERSION}" /w; then
+  ok "manifests"; else fail "kubeconform"; fi
+# The .example files are not *.yaml (the directory apply must skip them) and
+# kubeconform ignores a non-.yaml path even when named explicitly; feed stdin.
+# A real 30-agent-config.yaml, if present, is just one more file in the dir run.
+for ex in 30-agent-config.yaml.example ingest-secret.yaml.example; do
+  if docker run --rm -i "${KUBECONFORM_IMG}" -strict -summary \
+       -kubernetes-version "${KUBECONFORM_K8S_VERSION}" - < "${K8S_DIR}/${ex}"; then
+    ok "${ex}"; else fail "kubeconform (${ex})"; fi
+done
+# The Alloy config ships inside a ConfigMap. `fmt` is the parser (v1.5 has no
+# `validate`); it cannot resolve sys.env(), which is fine.
+K8S_ALLOY="$(mktemp)"
+if python3 -c 'import sys, yaml; sys.stdout.write(yaml.safe_load(open(sys.argv[1]))["data"]["config.alloy"])' \
+     "${K8S_DIR}/40-alloy-config.yaml" > "${K8S_ALLOY}" \
+   && docker run --rm -v "${K8S_ALLOY}:/etc/alloy/config.alloy:ro" "grafana/alloy:${ALLOY_VERSION:?set ALLOY_VERSION in ${ENV_FILE}}" \
+        fmt /etc/alloy/config.alloy >/dev/null; then
+  ok "config.alloy (ConfigMap)"; else fail "alloy fmt (kubernetes ConfigMap)"; fi
+rm -f "${K8S_ALLOY}"
+if grep -qE "^\s*image: grafana/alloy:${ALLOY_VERSION}\s*$" "${K8S_DIR}/50-alloy.yaml"; then
+  ok "Deployment pins grafana/alloy:${ALLOY_VERSION}"; else fail "50-alloy.yaml image != ALLOY_VERSION (${ALLOY_VERSION})"; fi
 
 step "docker compose config"
 if docker compose --env-file "${ENV_FILE}" -f stack/docker-compose.yml config -q; then

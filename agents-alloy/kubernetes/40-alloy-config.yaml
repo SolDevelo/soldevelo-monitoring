@@ -1,0 +1,209 @@
+# The Alloy config. Edited rarely: identity and endpoints live in
+# 30-agent-config.yaml (copied from its .example), not here. After a change:
+# kubectl rollout restart deploy/alloy -n monitoring. Syntax check: bin/validate.sh.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |
+    // Kubernetes agent: scrape annotated pods + kube-state-metrics, tail pod logs
+    // through the API, push to the central /ingest/* endpoints. Env-configured
+    // (ConfigMap alloy-env + Secret alloy-ingest). See docs/kubernetes-setup.md.
+    //
+    // No node / cAdvisor collectors here: a cluster has no host to mount, and the
+    // package's host / containers dashboards are docker-shaped. Cluster and
+    // workload state comes from kube-state-metrics instead (job="kube-state").
+
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // metrics: pods annotated prometheus.io/scrape=true (+ port, path)
+
+    discovery.relabel "app" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex         = "true"
+        action        = "keep"
+      }
+      // no port annotation → not scraped (else every containerPort would be)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        regex         = "\\d+"
+        action        = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_phase"]
+        regex         = "Succeeded|Failed"
+        action        = "drop"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_init"]
+        regex         = "true"
+        action        = "drop"
+      }
+      // pod IP + annotated port. Every containerPort of the pod is one discovered
+      // target; after this rewrite they share address and labels and the scraper
+      // keeps one.
+      rule {
+        source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        regex         = "(.+);(\\d+)"
+        replacement   = "$1:$2"
+        target_label  = "__address__"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        regex         = "(.+)"
+        target_label  = "__metrics_path__"
+      }
+      // service: pod label `app`, overridden by the monitoring.service annotation
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "service"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_monitoring_service"]
+        regex         = "(.+)"
+        target_label  = "service"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "instance"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+    }
+
+    // `job` is the package's collector-kind contract — app / kube-state / agent
+    // here — and alert rules key on it. Service identity lives in `service`, not
+    // here. Never let it default to the Alloy component name. See docs/metrics.md.
+    prometheus.scrape "app" {
+      targets         = discovery.relabel.app.output
+      forward_to      = [prometheus.remote_write.central.receiver]
+      job_name        = "app"
+      scrape_interval = "15s"
+    }
+
+    // metrics: cluster / workload state
+    //
+    // kube_deployment_* carry their own `deployment` (the k8s Deployment name), and
+    // remote_write external_labels only fill a label that is absent. Setting it on
+    // the target makes ours win and keeps KSM's as `exported_deployment`.
+
+    prometheus.scrape "kube_state" {
+      targets = [{
+        __address__ = "kube-state-metrics.monitoring.svc:8080",
+        service     = "kube-state-metrics",
+        deployment  = sys.env("DEPLOYMENT"),
+      }]
+      forward_to      = [prometheus.remote_write.central.receiver]
+      job_name        = "kube-state"
+      scrape_interval = "30s"
+    }
+
+    // metrics: the agent itself
+    //
+    // The heartbeat AgentAbsent keys on. `instance` defaults to the pod hostname,
+    // which changes on every rollout — pin it to TARGET_NAME (the docker agent does
+    // the same via compose `hostname:`) or AgentAbsent fires on every upgrade.
+
+    prometheus.exporter.self "agent" {}
+
+    discovery.relabel "agent" {
+      targets = prometheus.exporter.self.agent.targets
+
+      rule {
+        target_label = "job"
+        replacement  = "agent"
+      }
+      rule {
+        target_label = "instance"
+        replacement  = sys.env("TARGET_NAME")
+      }
+    }
+
+    prometheus.scrape "agent" {
+      targets    = discovery.relabel.agent.output
+      forward_to = [prometheus.remote_write.central.receiver]
+    }
+
+    prometheus.remote_write "central" {
+      endpoint {
+        url          = sys.env("INGEST_METRICS_URL")
+        bearer_token = sys.env("INGEST_TOKEN")
+      }
+      external_labels = {
+        app         = sys.env("APP"),
+        deployment  = sys.env("DEPLOYMENT"),
+        environment = sys.env("ENVIRONMENT"),
+        host        = sys.env("TARGET_NAME"),
+      }
+    }
+
+    // logs: every container of every pod, via the API (no hostPath, no DaemonSet)
+
+    discovery.relabel "logs" {
+      targets = discovery.kubernetes.pods.targets
+
+      // drop the agent's own namespace (feedback loop)
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        regex         = "monitoring"
+        action        = "drop"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "service"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_monitoring_service"]
+        regex         = "(.+)"
+        target_label  = "service"
+      }
+      rule {
+        target_label = "app"
+        replacement  = sys.env("APP")
+      }
+      rule {
+        target_label = "deployment"
+        replacement  = sys.env("DEPLOYMENT")
+      }
+      rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
+      }
+      rule {
+        target_label = "host"
+        replacement  = sys.env("TARGET_NAME")
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.logs.output
+      forward_to = [loki.write.central.receiver]
+    }
+
+    loki.write "central" {
+      endpoint {
+        url          = sys.env("INGEST_LOGS_URL")
+        bearer_token = sys.env("INGEST_TOKEN")
+      }
+    }

@@ -7,6 +7,7 @@ alerts wired to Slack, and a documented metric catalog so the same names mean
 the same things across projects.
 
 **Version:** `0.5.1`. See [`CHANGELOG.md`](CHANGELOG.md).
+[![validate](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml/badge.svg)](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml)
 
 ## What's in the box
 
@@ -34,11 +35,15 @@ the same things across projects.
 - **agents-alloy/** — one Grafana Alloy agent per target host: discovers the
   local workloads, collects host + container + app metrics and every
   container's logs, and pushes them in over authenticated HTTPS.
+- **agents-alloy/kubernetes/** — the same agent as plain manifests for a
+  Kubernetes cluster: annotated-pod metrics, kube-state-metrics, pod logs via
+  the API, agent heartbeat. No node / cAdvisor metrics there.
 - **prometheus/**, **loki/**, **alertmanager/**, **blackbox/**, **grafana/** —
   configs (templates rendered from `.env` plus committed rule files).
 - **bin/render-configs.sh** — envsubst `*.template` files using `.env` values.
 - **docs/** — `metrics.md` (catalog and conventions), `remote-push-setup.md`
-  (the ingest endpoints), `host-setup.md` (run the agent), `blackbox-setup.md`
+  (the ingest endpoints), `host-setup.md` (run the agent),
+  `kubernetes-setup.md` (run it on a cluster), `blackbox-setup.md`
   (HTTP probes), `java-app-setup.md`, `python-app-setup.md`, `rabbitmq-setup.md`,
   `postgresql-setup.md`, `jenkins-setup.md` (label a service for discovery),
   `business-metrics.md`, `dead-man-switch.md` (external heartbeat),
@@ -216,6 +221,11 @@ docker compose --env-file .env -f agents-alloy/docker-compose.yml up -d
 `APP_NETWORK` is the app stack's compose network (`docker network ls`, e.g.
 `myapp_default`) — the agent joins it to reach container IPs.
 
+On Kubernetes instead: copy `agents-alloy/kubernetes/30-agent-config.yaml.example`
+to `30-agent-config.yaml` and edit it, create the token Secret,
+`kubectl apply -f agents-alloy/kubernetes/` —
+[`docs/kubernetes-setup.md`](docs/kubernetes-setup.md).
+
 Host + container metrics and all container logs now flow. Add compose labels to
 your app services so the agent scrapes them too. Full walkthrough:
 [`docs/host-setup.md`](docs/host-setup.md) and
@@ -240,8 +250,9 @@ Short version:
      monitoring.service: "scraper"
    ```
    `app` / `deployment` / `environment` / `host` come from the agent's env;
-   `service` from the label. On Kubernetes use `prometheus.io/scrape` pod
-   annotations. Label contract: [`docs/metrics.md`](docs/metrics.md).
+   `service` from the label. On Kubernetes use `prometheus.io/*` pod
+   annotations — [`docs/kubernetes-setup.md`](docs/kubernetes-setup.md). Label
+   contract: [`docs/metrics.md`](docs/metrics.md).
 
 ## How do I know it's working?
 
@@ -370,7 +381,8 @@ stages*, not version numbers; what goes on a git tag is always semver.
 - **V2** — Terraform module to provision the monitoring VM on AWS:
   EC2 + EBS + Route53 + Caddy reverse proxy + automatic backups.
 - **V3+** — Frontend RUM (Grafana Faro), multi-tenant Grafana, Kubernetes
-  Alloy chart, unified Service dashboard (constant top + technology-adaptive
+  node / cAdvisor metrics (the host / containers dashboards are docker-shaped),
+  unified Service dashboard (constant top + technology-adaptive
   panels), runbook directory linked from alert payloads.
 
 ## Why these choices

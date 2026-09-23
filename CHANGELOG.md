@@ -6,6 +6,22 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Kubernetes agent** (`agents-alloy/kubernetes/`, `docs/kubernetes-setup.md`):
+  plain manifests — namespace, least-privilege RBAC, Alloy Deployment with the
+  config in a ConfigMap, kube-state-metrics — for one Alloy per cluster. It
+  scrapes pods annotated `prometheus.io/scrape` as `job="app"` (`service`
+  from the pod's `app` label or a `monitoring.service` annotation, `instance`
+  = pod name), kube-state-metrics under the new collector kind
+  `job="kube-state"`, tails every pod's logs through the API, and pins the
+  heartbeat `instance` to `TARGET_NAME` so `AgentAbsent` survives a rollout.
+  Identity and endpoints come from the same variables as the docker agent's
+  `.env`, via a ConfigMap plus a Secret. No node / cAdvisor metrics on
+  Kubernetes: the host / containers dashboards are docker-shaped.
+- **CI**: `bin/validate.sh` runs in GitHub Actions on every push and PR, and
+  gains a step that kubeconforms the Kubernetes manifests and parses the
+  ConfigMap's Alloy config.
+
 ### Changed
 - **Stack ports are loopback-only** (behaviour change). Prometheus 9090,
   Prometheus-meta 9091, Loki 3100, Alertmanager 9093, Blackbox 9115 and Grafana

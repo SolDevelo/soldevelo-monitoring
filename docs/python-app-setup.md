@@ -85,8 +85,8 @@ services:
 (Django serves `/metrics/` with a trailing slash). `monitoring.service` becomes
 the `service` label; `app` / `deployment` / `host` come from the agent's env.
 Don't attach `app`/`deployment`/`service` in Python code — the agent owns those
-labels. On Kubernetes use `prometheus.io/scrape|port|path` pod annotations.
-Contract: [`metrics.md`](metrics.md).
+labels. On Kubernetes use pod annotations — see
+[`kubernetes-setup.md`](kubernetes-setup.md). Contract: [`metrics.md`](metrics.md).
 
 ## 4. Verify
 

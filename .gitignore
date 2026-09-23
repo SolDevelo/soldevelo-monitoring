@@ -15,6 +15,9 @@
 /grafana/dashboards/overlay/*.json
 !**/.gitkeep
 
+# Per-deployment identity of the Kubernetes agent (copied from its .example)
+/agents-alloy/kubernetes/30-agent-config.yaml
+
 # Local editor / OS junk
 .DS_Store
 .idea/

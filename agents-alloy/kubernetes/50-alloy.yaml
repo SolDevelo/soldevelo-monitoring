@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alloy
+  namespace: monitoring
+  labels:
+    app: alloy
+spec:
+  replicas: 1
+  # Never two agents at once: both would push the same `instance` (TARGET_NAME)
+  # heartbeat and the receiver rejects the second as duplicate/out-of-order.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+        - name: alloy
+          # Same pin as ALLOY_VERSION in .env.example; bump both together.
+          image: grafana/alloy:v1.5.1
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --storage.path=/var/lib/alloy
+          envFrom:
+            - configMapRef:
+                name: alloy-env
+          env:
+            - name: INGEST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: alloy-ingest
+                  key: INGEST_TOKEN
+          ports:
+            - name: http
+              containerPort: 12345
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/alloy
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        # WAL / positions. Ephemeral: a restart re-reads log tails from now.
+        - name: data
+          emptyDir: {}

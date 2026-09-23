@@ -52,8 +52,7 @@ services:
 are set once by the agent (`APP` / `DEPLOYMENT` / `TARGET_NAME`), never per
 service. Replicas of one role share `service` and differ by `instance` (the
 compose service name). On Kubernetes use pod-template annotations instead —
-`prometheus.io/scrape: "true"`, `prometheus.io/port: "9090"`,
-`prometheus.io/path: "/actuator/prometheus"`. Contract: [`metrics.md`](metrics.md).
+see [`kubernetes-setup.md`](kubernetes-setup.md). Contract: [`metrics.md`](metrics.md).
 
 ## 4. Align `-Xmx` with the container memory limit
 

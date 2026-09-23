@@ -1,0 +1,7 @@
+# Kubernetes agent: `kubectl apply -f agents-alloy/kubernetes/`. Files are
+# numbered so a directory apply creates the namespace first. See
+# docs/kubernetes-setup.md.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring

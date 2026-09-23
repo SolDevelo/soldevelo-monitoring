@@ -67,9 +67,9 @@ discovers them and scrapes their internal port. Per-technology guides:
 
 ## Kubernetes
 
-On k8s, Alloy runs in-cluster; workloads are onboarded with
-`prometheus.io/scrape` pod annotations instead of compose labels. The same
-label contract applies (`docs/metrics.md`).
+On a cluster the agent runs in-cluster from plain manifests and workloads are
+onboarded with `prometheus.io/*` pod annotations instead of compose labels;
+same label contract. See [`kubernetes-setup.md`](kubernetes-setup.md).
 
 ## Common gotchas
 

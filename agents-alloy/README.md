@@ -10,9 +10,10 @@ One Grafana Alloy container per target host. It:
 - **pushes** metrics (`remote_write`) and logs to the central host's
   bearer-gated `/ingest/*` endpoints.
 
-Workloads self-describe (compose labels here, `prometheus.io/*` pod annotations
-on Kubernetes) and the agent discovers them. See `docs/remote-push-setup.md`
-(receiver) and `docs/metrics.md` (label contract).
+Workloads self-describe with compose labels and the agent discovers them. The
+Kubernetes variant lives in [`kubernetes/`](kubernetes/) — see
+[`docs/kubernetes-setup.md`](../docs/kubernetes-setup.md). See
+`docs/remote-push-setup.md` (receiver) and `docs/metrics.md` (label contract).
 
 ## Self-describing services
 

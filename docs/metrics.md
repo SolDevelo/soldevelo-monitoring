@@ -54,12 +54,13 @@ alert to the fallback receiver. Always aggregate
 `app` and `deployment` are **always attached on the Prometheus side** (the
 target JSON `labels`, or `external_labels` / relabel from a pushing agent),
 never by the app — the same image runs in every deployment, so it cannot know
-which deployment it is. `service` / `environment` may *also* be set app-side
-(Micrometer common tags), but the target label wins: with the default
-`honor_labels: false`, a same-named label the app emits is preserved as
-`exported_service` / `exported_environment` and the target's value takes
-`service` / `environment`. Keep the two consistent to avoid confusion, or drop
-the app-side tags and let the target be authoritative.
+which deployment it is. `service` is a target label, so an app-side `service`
+(Micrometer common tag) is kept as `exported_service` and the agent's wins. But
+`app` / `deployment` / `environment` / `host` are remote_write
+`external_labels` on both agents, and those never overwrite a label already on
+a series — a workload that emits its own `environment` keeps it and escapes the
+Alertmanager routing. Do not emit any of these from app code (see *Reserved
+labels* below).
 
 ### Reserved labels (don't set in app code)
 
@@ -71,7 +72,7 @@ configs. Don't override them.
 | `instance` | Alloy (scrape target)             | The replica (compose service / pod). |
 | `job`      | Alloy (`job_name` / relabel)      | Collector **kind** — see below.      |
 | `monitor`  | `prometheus.yml` external_labels  | Which monitoring instance received.  |
-| `container`| Alloy / cAdvisor                  | Docker container name.               |
+| `container`| Alloy / cAdvisor                  | Docker container name; pod container name on Kubernetes. |
 | `stream`   | Alloy                             | `stdout` / `stderr` for log lines.   |
 
 ### The `job` contract
@@ -82,16 +83,20 @@ configs. Don't override them.
 
 | `job`      | What it collects                                        |
 | ---------- | ------------------------------------------------------- |
-| `app`      | Anything discovered by the agent's docker SD — every application container, exporter sidecar, Jenkins, RabbitMQ. |
+| `app`      | Anything discovered by the agent's docker SD (pod annotations on Kubernetes) — every application container, exporter sidecar, Jenkins, RabbitMQ. |
 | `node`     | `prometheus.exporter.unix` — host metrics.               |
 | `cadvisor` | `prometheus.exporter.cadvisor` — container metrics.      |
 | `agent`    | `prometheus.exporter.self` — the Alloy agent's heartbeat. |
+| `kube-state` | kube-state-metrics, Kubernetes agent only — workload state (pod phase, restarts, replicas). |
 
-Rules key on these four values, so they must not be left to default. Alloy
-would otherwise label them with its own component names
-(`prometheus.scrape.app`, `integrations/unix`) and every alert in the package
-would be pinned to the agent config's internal structure — the migration from
-pull to push broke four alerts exactly that way.
+On Kubernetes `node` and `cadvisor` are absent: the agent has no host to mount,
+so it emits `app` / `kube-state` / `agent` only (`docs/kubernetes-setup.md`).
+
+These five values are the contract — rules key on the first four today — so
+none may be left to default. Alloy would otherwise label them with its own
+component names (`prometheus.scrape.app`, `integrations/unix`) and every alert
+in the package would be pinned to the agent config's internal structure — the
+migration from pull to push broke four alerts exactly that way.
 
 Two mechanisms, and the difference matters: the docker-SD scrape sets
 `job_name = "app"` on the scrape itself, but `prometheus.exporter.*` components

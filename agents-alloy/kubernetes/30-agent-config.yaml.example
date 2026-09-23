@@ -1,0 +1,15 @@
+# Copy to 30-agent-config.yaml (gitignored) and edit. Same variables as the
+# docker agent's .env (AGENT SIDE); the Alloy config reads them with sys.env().
+# INGEST_TOKEN is a Secret — see ingest-secret.yaml.example.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-env
+  namespace: monitoring
+data:
+  APP: myapp                    # the application this cluster runs
+  DEPLOYMENT: main              # which deployment of it
+  ENVIRONMENT: prod             # prod | uat | staging | dev — Alertmanager routes on it
+  TARGET_NAME: myapp-prod-eks   # cluster slug → the `host` label
+  INGEST_METRICS_URL: https://monitoring.example.com/ingest/prometheus/api/v1/write
+  INGEST_LOGS_URL: https://monitoring.example.com/ingest/loki/loki/api/v1/push
