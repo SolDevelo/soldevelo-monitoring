@@ -194,6 +194,14 @@ PY
 
 step "kubernetes agent (kubeconform + alloy fmt + image pin)"
 K8S_DIR="${REPO_ROOT}/agents-alloy/kubernetes"
+# ALLOY_VERSION is agent-side; a stack-only .env has none. Fall back to the
+# committed pin so the gate still runs on a monitoring host.
+if [[ -n "${ALLOY_VERSION:-}" ]]; then
+  echo "    ALLOY_VERSION=${ALLOY_VERSION} (from ${ENV_FILE})"
+else
+  ALLOY_VERSION="$(sed -nE 's/^ALLOY_VERSION=//p' .env.example | tr -d "\"'")"; export ALLOY_VERSION
+  echo "    ALLOY_VERSION=${ALLOY_VERSION:?ALLOY_VERSION missing from .env.example} (from .env.example — not set in ${ENV_FILE})"
+fi
 if docker run --rm -v "${K8S_DIR}:/w:ro" "${KUBECONFORM_IMG}" -strict -summary \
      -kubernetes-version "${KUBECONFORM_K8S_VERSION}" /w; then
   ok "manifests"; else fail "kubeconform"; fi
@@ -210,7 +218,7 @@ done
 K8S_ALLOY="$(mktemp)"
 if python3 -c 'import sys, yaml; sys.stdout.write(yaml.safe_load(open(sys.argv[1]))["data"]["config.alloy"])' \
      "${K8S_DIR}/40-alloy-config.yaml" > "${K8S_ALLOY}" \
-   && docker run --rm -v "${K8S_ALLOY}:/etc/alloy/config.alloy:ro" "grafana/alloy:${ALLOY_VERSION:?set ALLOY_VERSION in ${ENV_FILE}}" \
+   && docker run --rm -v "${K8S_ALLOY}:/etc/alloy/config.alloy:ro" "grafana/alloy:${ALLOY_VERSION}" \
         fmt /etc/alloy/config.alloy >/dev/null; then
   ok "config.alloy (ConfigMap)"; else fail "alloy fmt (kubernetes ConfigMap)"; fi
 rm -f "${K8S_ALLOY}"

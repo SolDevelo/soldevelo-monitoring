@@ -6,6 +6,68 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **JVM series no longer carry an app-emitted `environment` label.** Spring
+  apps stamp `environment="production"` on every series as a Micrometer common
+  tag, and remote_write `external_labels` never overwrite a label already
+  present — so those series bypassed the enum, the Alertmanager routing and
+  every `environment=prod` dashboard filter. Both agents now drop `app` /
+  `deployment` / `environment` / `host` from `job="app"` series before pushing
+  (`prometheus.relabel` between the scrape and remote_write); the agent's
+  values are re-attached as before. `service` / `instance` are untouched.
+  Upgrade note: redeploy the agents together with the stack — until an agent
+  is on 0.6.1 its JVM series keep the app's value, and picking `prod` in the
+  dashboards' `environment` variable blanks the JVM panels.
+- **JVM and Python dashboards' logs panel returns logs again.** Its Loki
+  selector took `$environment` from JVM series (`production`) while Loki
+  streams carry `prod`. The variable now reads `up{job="app"}`, which only the
+  agent labels, so the picker shows enum values only and the logs panel's
+  `environment` matcher agrees with Loki. The filter stays: one deployment can
+  span environments (UAT and prod on one `deployment`), so dropping it would
+  mix their logs.
+- **Host overview network panel shows traffic.** `rate(...[1m])` on a 60s
+  node scrape never spanned two samples. Now `$__rate_interval`, and the
+  Prometheus datasource declares `timeInterval: 60s` (the slowest collector)
+  so that interval is at least 4m — without it Grafana assumes 15s and the
+  window would still be 60s. Side effect: Prometheus panels step at ≥ 60s.
+- **RabbitMQ dashboard counts only the broker.** `rabbitmq_connections` and
+  the other `rabbitmq_*` names are also emitted by Spring's Micrometer
+  RabbitMQ binder, so "Active connections" summed the apps' client-side
+  gauges into the exporter's. Every query is now scoped to
+  `service="rabbitmq"` — the `monitoring.service` value `rabbitmq-setup.md`
+  already required for `RabbitMQDown`.
+- **Containers dashboard logs picker filters logs.** The `container`
+  variable listed cAdvisor names (`prod_env_referencedata_1`) while Loki's
+  `container` label is the compose service name (`referencedata`), so every
+  specific selection returned no logs (same defect as 0.5.1 fixed for the JVM
+  / Python dashboards). Values now come from Loki; the metric panels match the
+  same names through `container_label_com_docker_compose_service`, so one
+  picker drives both. "All" still shows non-compose containers' metrics.
+- **Stats read `0` instead of blank when the counted thing has never
+  happened**: JVM "GC overhead" (no GC pause yet — Micrometer registers the
+  timer lazily) and both lines of "HTTP error rate (%)" (no 5xx / 4xx ever),
+  RabbitMQ "Total messages" and "Consumers" (no queues yet), Containers
+  "Containers seen recently". `OR vector(0)`, as the alerts / home stats
+  already did. Time-series panels grouped by label are unchanged.
+- **JVM HTTP latency panel has data on Spring Boot defaults.** Spring exports
+  no `http_server_requests_seconds_bucket` unless
+  `management.metrics.distribution.percentiles-histogram.http.server.requests=true`,
+  so the p50 / p95 / p99 lines were empty and `HttpLatencyP95High` could never
+  fire. The panel gains a `max, no histogram` line from `_max`;
+  `java-app-setup.md` documents the property (with its cardinality cost) and
+  the rule carries the caveat. The rule itself is unchanged.
+- **`ContainerAbsent` / `ServiceAbsent` no longer fire for every container or
+  service when the agent's label set changes.** Both cancelled the 2h lookback
+  with `unless` on the full aggregation set, so series pushed before 0.6.0
+  (no `environment`) could not be cancelled by the current ones — 22 false
+  positives on one upgrade. They now cancel on identity only (`unless on
+  (host, name)` / `on (host, service, instance)`) and keep the routing labels.
+  Pinned by two new unit tests that reproduce the cutover.
+- **`bin/validate.sh` runs with a stack-only `.env`.** The Kubernetes step
+  required `ALLOY_VERSION`, an agent-side variable a monitoring host's `.env`
+  never has. It now falls back to the pin in `.env.example` and prints which
+  source it used.
+
 ## [0.6.0] — 2026-09-23
 
 ### Added
