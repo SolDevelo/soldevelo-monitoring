@@ -38,11 +38,15 @@ groups:
         # (id, image, container_label_*). A label that changes on redeploy makes
         # the old series unreachable forever and pins this alert firing for the
         # whole window. `service` and `instance` are stable by convention.
+        #
+        # `unless on (host, service, instance)`: cancel on identity only, so a
+        # label-set change on the agent (0.6.0 added `environment`) cannot
+        # orphan the pre-cutover series. See ContainerAbsent.
         expr: |
           max by (app, deployment, environment, host, service, instance) (
             max_over_time(up{job="app"}[2h])
           )
-          unless
+          unless on (host, service, instance)
           max by (app, deployment, environment, host, service, instance) (
             up{job="app"}
           )

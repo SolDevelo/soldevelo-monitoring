@@ -67,6 +67,34 @@ tests:
               summary: "Service stopped reporting: reports (prod)"
               description: "'reports' on h1 was being scraped within the last 2h and no longer is — removed, renamed, or its container is gone. Resolves on its own 2h after a deliberate removal."
 
+  # Regression: the agent's label set changed under a running service (0.6.0
+  # added `environment`). Cancelling on the full aggregation set left every
+  # pre-cutover series uncancellable for the whole 2h window — 22 false
+  # positives on one upgrade. Cancel on identity only.
+  - interval: 1m
+    name: ServiceAbsent stays quiet when the agent's label set changes under a running service
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",host="h1",service="reports",instance="reports"}'
+        values: "1+0x30 _x90"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="reports",instance="reports"}'
+        values: "_x31 1+0x89"
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: ServiceAbsent
+        exp_alerts: []
+
+  - interval: 1m
+    name: ContainerAbsent stays quiet when the agent's label set changes under a running container
+    input_series:
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="False",host="h1"}'
+        values: "1+0x30 _x90"
+      - series: 'container_last_seen{name="reports",id="/docker/aaa",image="reports:1",container_label_com_docker_compose_project="p1",container_label_com_docker_compose_oneoff="False",app="acme",deployment="d1",environment="prod",host="h1"}'
+        values: "_x31 1+0x89"
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: ContainerAbsent
+        exp_alerts: []
+
   # Regression test for the defect this rule was rewritten to fix: Docker mints
   # a new container id on every recreate, so a redeploy permanently orphans the
   # old series. Without aggregating `id` and `image` away, this fires for the

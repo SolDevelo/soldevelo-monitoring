@@ -15,11 +15,17 @@ groups:
         # (no compose project) or a `docker-compose run` one-off is expected to
         # exit — alerting on its disappearance is noise, and Docker's random
         # names mean every one is a fresh series that never resolves.
+        #
+        # `unless on (host, name)`: cancel on identity only. The aggregation
+        # keeps app / deployment / environment for routing and inhibition, but
+        # a label-set change on the agent (0.6.0 added `environment`) must not
+        # leave every pre-cutover series uncancellable for the whole window —
+        # that fired once for every container on one upgrade.
         expr: |
           max by (app, deployment, environment, host, name) (
             max_over_time(container_last_seen{name!="", container_label_com_docker_compose_project!="", container_label_com_docker_compose_oneoff!="True"}[2h])
           )
-          unless
+          unless on (host, name)
           max by (app, deployment, environment, host, name) (
             container_last_seen{name!="", container_label_com_docker_compose_project!="", container_label_com_docker_compose_oneoff!="True"}
           )

@@ -81,6 +81,10 @@ groups:
           description: "'{{ $labels.service }}' on {{ $labels.host }} served >5% 4xx responses over 10m."
 
       - alert: HttpLatencyP95High
+        # Needs histogram buckets. Spring Boot exports only _count / _sum / _max
+        # by default, so without
+        # management.metrics.distribution.percentiles-histogram.http.server.requests=true
+        # on the app this evaluates to nothing and can never fire. docs/java-app-setup.md.
         expr: |
           histogram_quantile(0.95,
             sum by (app, deployment, environment, service, host, le) (rate(http_server_requests_seconds_bucket[5m]))
