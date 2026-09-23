@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-23
+
 ### Fixed
 - **JVM series no longer carry an app-emitted `environment` label.** Spring
   apps stamp `environment="production"` on every series as a Micrometer common
@@ -628,7 +630,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.4.0...v0.5.0
