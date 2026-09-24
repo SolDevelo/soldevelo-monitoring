@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-09-24
+
 ### Added
 - **`CONTRIBUTING.md` and `SECURITY.md`.** How to send a change (validate,
   Conventional Commits, a CHANGELOG line, discuss label-contract changes
@@ -651,7 +653,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.5.0...v0.5.1
