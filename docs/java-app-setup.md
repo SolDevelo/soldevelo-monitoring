@@ -28,16 +28,25 @@ separate management port that isn't behind the app's security filter:
 management.server.port=9090
 management.server.address=0.0.0.0
 management.endpoints.web.exposure.include=health,prometheus
-# Latency histogram buckets. Without this Spring Boot exports only
+# Latency buckets. Without this Spring Boot exports only
 # http_server_requests_seconds_{count,sum,max}: the JVM dashboard's p50/p95/p99
-# stay empty (the "max, no histogram" line is all you get) and the
-# HttpLatencyP95High alert can never fire.
-management.metrics.distribution.percentiles-histogram.http.server.requests=true
+# stay empty and the HttpLatencyP95High alert can never fire.
+management.metrics.distribution.slo.http.server.requests=500ms,2000ms,5000ms
 ```
 
-The histogram adds ~70 `_bucket` series per `uri` × `method` × `status`
-combination — fine for a service with tens of endpoints; watch the series
-count on one with hundreds.
+Start with these three coarse buckets: under 0.5 s is fine, 0.5–2 s is slow,
+2–5 s is a problem, over 5 s is broken. The `2000ms` edge is the
+`HttpLatencyP95High` threshold, so the alert stays exact. Percentiles are
+interpolated inside a bucket, so the dashboard's p50/p95/p99 only tell you
+which band you are in (fast traffic reads a flat ~0.475 s) — that is the
+point. It costs 4 `_bucket` series per `uri` × `method` × `status`.
+
+Add buckets only when that is not enough, e.g. to see a regression inside
+the fast band: extend the `slo` list (whole units only — `2.5s` fails
+binding and the app will not start; write `2500ms`). Avoid
+`management.metrics.distribution.percentiles-histogram.http.server.requests=true`
+unless you need precise percentiles: it publishes ~70 buckets per
+combination, multiplied by every instance.
 
 A typical Spring Boot service does exactly this —
 actuator on `9090`, the app itself on `8080`. Don't publish `9090` to the
@@ -103,7 +112,6 @@ Then Grafana → **JVM application** → pick your `deployment` / `service`.
   whenever `management.server.port` is set — it defaults to loopback), and make
   sure the agent shares the app's docker network.
 - **Latency panel shows only "max, no histogram" / `HttpLatencyP95High` never
-  fires** — no `_bucket` series. Enable the percentiles-histogram property
-  (section 2).
+  fires** — no `_bucket` series. Set the `slo` buckets property (section 2).
 - **Dashboard empty though metrics arrive** — you selected an `app` /
   `deployment` / `service` with no series; check the labels resolve.

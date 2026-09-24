@@ -334,7 +334,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "HTTP latency (p50 / p95 / p99)",
-      "description": "Request-duration percentiles from the http_server_requests_seconds histogram. p95 > 2s for 5m triggers HttpLatencyP95High. Spring Boot exports no buckets by default — then only the max line has data; enable management.metrics.distribution.percentiles-histogram.http.server.requests=true (docs/java-app-setup.md).",
+      "description": "Request-duration percentiles from the http_server_requests_seconds histogram. p95 > 2s for 5m triggers HttpLatencyP95High. Spring Boot exports no buckets by default — then only the max line has data; set management.metrics.distribution.slo.http.server.requests=500ms,2000ms,5000ms (docs/java-app-setup.md). With those coarse buckets the percentiles show the band (<0.5s / <2s / <5s), not a precise value.",
       "gridPos": { "x": 16, "y": 27, "w": 8, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s" } },

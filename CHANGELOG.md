@@ -11,6 +11,14 @@ follows [semver](https://semver.org/).
   Conventional Commits, a CHANGELOG line, discuss label-contract changes
   first) and how to report a vulnerability privately. Linked from the README.
 
+### Changed
+- **Java latency: start with three coarse SLO buckets.** `docs/java-app-setup.md`
+  now recommends `management.metrics.distribution.slo.http.server.requests=500ms,2000ms,5000ms`
+  (4 `_bucket` series per combination, the `2000ms` edge matching
+  `HttpLatencyP95High`) instead of `percentiles-histogram`, which publishes ~70.
+  Add buckets only when the bands are not enough. The JVM dashboard's latency
+  panel description says the same.
+
 ## [0.6.1] — 2026-09-23
 
 ### Fixed
