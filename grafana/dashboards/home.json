@@ -196,12 +196,14 @@
       "gridPos": { "x": 14, "y": 8, "w": 10, "h": 10 },
       "options": {
         "showStarred": false,
-        "showRecentlyViewed": true,
-        "showSearch": false,
-        "showHeadings": true,
-        "maxItems": 30,
+        "showRecentlyViewed": false,
+        "showSearch": true,
+        "showHeadings": false,
+        "includeVars": false,
+        "keepTime": false,
+        "maxItems": 100,
         "query": "",
-        "tags": ["soldevelo-monitoring"]
+        "tags": []
       }
     },
     {

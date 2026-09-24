@@ -20,6 +20,7 @@ follows [semver](https://semver.org/).
   panel description says the same.
 - **Grafana UI trimmed.** News feed, usage reporting, update checks, the help
   menu and the profile page are off.
+- **Home dashboard lists every dashboard** instead of the recently viewed ones.
 
 ### Fixed
 - **Home dashboard now opens on `/`.** `GF_USERS_DEFAULT_HOME_DASHBOARD_UID` is
