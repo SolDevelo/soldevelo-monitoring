@@ -407,3 +407,6 @@ stages*, not version numbers; what goes on a git tag is always semver.
 ## License
 
 MIT — see [`LICENSE`](LICENSE). Copyright © 2026 SolDevelo.
+
+Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md). Security reports:
+[`SECURITY.md`](SECURITY.md).

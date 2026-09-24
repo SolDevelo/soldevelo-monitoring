@@ -6,6 +6,11 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`CONTRIBUTING.md` and `SECURITY.md`.** How to send a change (validate,
+  Conventional Commits, a CHANGELOG line, discuss label-contract changes
+  first) and how to report a vulnerability privately. Linked from the README.
+
 ## [0.6.1] — 2026-09-23
 
 ### Fixed
