@@ -18,6 +18,13 @@ follows [semver](https://semver.org/).
   `HttpLatencyP95High`) instead of `percentiles-histogram`, which publishes ~70.
   Add buckets only when the bands are not enough. The JVM dashboard's latency
   panel description says the same.
+- **Grafana UI trimmed.** News feed, usage reporting, update checks, the help
+  menu and the profile page are off.
+
+### Fixed
+- **Home dashboard now opens on `/`.** `GF_USERS_DEFAULT_HOME_DASHBOARD_UID` is
+  not a Grafana setting, so the stock welcome page was shown; replaced with
+  `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH` pointing at `home.json`.
 
 ## [0.6.1] — 2026-09-23
 
