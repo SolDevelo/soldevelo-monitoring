@@ -158,7 +158,7 @@ services:
       - "/:/host:ro,rslave"
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION}
+    image: ghcr.io/google/cadvisor:${CADVISOR_VERSION}
     restart: unless-stopped
     logging: *default-logging
     privileged: true

@@ -49,7 +49,7 @@ Prometheus dying.
 6. Verify — the heartbeat service should show a ping within 5 minutes:
 
    ```sh
-   docker run --rm --network host --entrypoint amtool prom/alertmanager:v0.27.0 \
+   docker run --rm --network host --entrypoint amtool prom/alertmanager:v0.34.1 \
      --alertmanager.url=http://localhost:9093 config routes test alertname=Watchdog
    # expect: heartbeat
    ```

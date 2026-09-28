@@ -20,7 +20,7 @@ cp .env.example .env
 Set the agent variables in `.env`:
 
 ```env
-ALLOY_VERSION=v1.5.1
+ALLOY_VERSION=v1.20.0
 APP=myapp                   # the application this host runs
 DEPLOYMENT=main             # which deployment of it (one value per remote site)
 ENVIRONMENT=prod            # prod | uat | staging | dev — Alertmanager routes on it

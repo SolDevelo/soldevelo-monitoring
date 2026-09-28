@@ -70,7 +70,7 @@ spec:
       containers:
         - name: kube-state-metrics
           # Bump here; check the ClusterRole against the release's RBAC example.
-          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
           args:
             - --resources=cronjobs,daemonsets,deployments,endpoints,horizontalpodautoscalers,ingresses,jobs,limitranges,namespaces,nodes,persistentvolumeclaims,persistentvolumes,poddisruptionbudgets,pods,replicasets,replicationcontrollers,resourcequotas,serviceaccounts,services,statefulsets,storageclasses,volumeattachments
           ports:

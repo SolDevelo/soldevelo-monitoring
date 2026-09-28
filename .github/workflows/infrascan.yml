@@ -32,6 +32,7 @@ jobs:
           touch "$RUNNER_TEMP/out/summary.md" && chmod 666 "$RUNNER_TEMP/out/summary.md"
 
       - name: Run InfraScan
+        shell: bash
         run: |
           docker run --rm \
             --env-file "$RUNNER_TEMP/versions.env" \
@@ -42,11 +43,19 @@ jobs:
             -v "$RUNNER_TEMP/out:/out" \
             soldevelo/infrascan:1.2.0 \
             cli /scan --scanner comprehensive --format html \
-            --out /out/infrascan-report.html --step-summary true
+            --out /out/infrascan-report.html --step-summary true \
+            | tee "$RUNNER_TEMP/out/scan.log"
 
+      # Grype has a fixed 240s per-image timeout; a timed-out image is left out
+      # of the report without an error, so its findings would read as zero.
       - name: Publish step summary
         if: always()
-        run: cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          grep -h 'Timeout scanning image' "$RUNNER_TEMP/out/scan.log" | while read -r line; do
+            echo "::warning::InfraScan: ${line} — not in the report"
+            echo "> ⚠️ ${line} — not in the report" >> "$GITHUB_STEP_SUMMARY"
+          done || true
 
       - uses: actions/upload-artifact@v4
         if: always()
