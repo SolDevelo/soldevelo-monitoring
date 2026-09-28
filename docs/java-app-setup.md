@@ -17,7 +17,7 @@ Maven:
 <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
 <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
 ```
-Spring Boot 2.x and 3.x both work.
+Spring Boot 2.x and 3.x both work. For 1.5, see [Spring Boot 1.5](#spring-boot-15).
 
 ## 2. Expose actuator on an unsecured management port
 
@@ -101,6 +101,35 @@ docker compose exec scraper curl -s localhost:9090/actuator/prometheus | head
 ```
 prints `jvm_memory_used_bytes`, `jvm_gc_pause_seconds`, `process_cpu_usage`.
 Then Grafana → **JVM application** → pick your `deployment` / `service`.
+
+## Spring Boot 1.5
+
+Boot 1.5 has no Micrometer of its own; `micrometer-spring-legacy` backports it.
+Micrometer 1.3.x is the last line that supports it:
+
+```groovy
+dependencies {
+    compile 'org.springframework.boot:spring-boot-starter-actuator'
+    compile 'io.micrometer:micrometer-spring-legacy:1.3.20'
+    compile 'io.micrometer:micrometer-registry-prometheus:1.3.20'
+}
+```
+```properties
+endpoints.prometheus.enabled=true
+endpoints.prometheus.sensitive=false
+```
+
+The endpoint is `/prometheus` on the app port (no `/actuator` prefix, and no
+separate management port unless `management.port` is set), so label it
+`monitoring.path: "/prometheus"`. If the app's security configuration secures
+everything by default, add `/prometheus` to its permitted paths.
+
+The latency buckets from section 2 are spelled `sla` in this Micrometer line
+(renamed `slo` later); without them `HttpLatencyP95High` never fires:
+
+```properties
+management.metrics.distribution.sla.http.server.requests=500ms,2000ms,5000ms
+```
 
 ## Common gotchas
 
