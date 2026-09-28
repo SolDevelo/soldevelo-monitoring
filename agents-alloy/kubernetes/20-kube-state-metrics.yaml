@@ -67,6 +67,9 @@ spec:
         app: kube-state-metrics
     spec:
       serviceAccountName: kube-state-metrics
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kube-state-metrics
           # Bump here; check the ClusterRole against the release's RBAC example.
@@ -78,6 +81,11 @@ spec:
               containerPort: 8080
             - name: telemetry
               containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http-metrics
+            initialDelaySeconds: 5
           readinessProbe:
             httpGet:
               path: /readyz
@@ -87,6 +95,9 @@ spec:
             runAsNonRoot: true
             runAsUser: 65534
             readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           resources:
             requests:
               cpu: "20m"
