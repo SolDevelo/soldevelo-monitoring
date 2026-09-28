@@ -5,6 +5,9 @@ issue first.
 
 - Run `bin/validate.sh` before opening a PR. CI runs the same gate on every
   push and PR (`.github/workflows/validate.yml`).
+- CI also runs InfraScan (`.github/workflows/infrascan.yml`). It never fails
+  the build; if you bump an image pin or touch `agents-alloy/kubernetes/`,
+  check the run summary for new critical findings.
 - Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`fix(rules): …`, `feat(agents): …`).
 - Add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md). Don't
