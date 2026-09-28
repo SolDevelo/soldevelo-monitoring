@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **InfraScan in CI** (`.github/workflows/infrascan.yml`): SolDevelo InfraScan
+  runs Checkov on the Kubernetes manifests and Grype on every pinned image
+  (versions from `.env.example`) on each push and PR. Report-only: grades land
+  in the run summary, the full HTML report as the `infrascan-report` artifact.
+
 ## [0.7.0] — 2026-09-28
 
 ### Added
