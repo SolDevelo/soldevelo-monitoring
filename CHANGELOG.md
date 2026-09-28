@@ -31,6 +31,11 @@ follows [semver](https://semver.org/).
   DB and cannot be rolled back to 11 without a backup of the `grafana-data`
   volume — take one first. Pull, then the usual `bin/render-configs.sh` and
   `up -d --force-recreate`; agents can follow on their own schedule.
+- **Kubernetes agent and kube-state-metrics hardened:** Alloy runs as non-root
+  uid 473 (the image's `alloy` user) with a read-only root filesystem; both
+  have no privilege escalation, all capabilities dropped, RuntimeDefault
+  seccomp and a liveness probe. Existing clusters: an in-place `kubectl apply`
+  works; Alloy's WAL is an emptyDir, so nothing on disk is owned by root.
 
 ## [0.7.0] — 2026-09-28
 

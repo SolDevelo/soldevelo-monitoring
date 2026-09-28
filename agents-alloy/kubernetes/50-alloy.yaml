@@ -20,6 +20,14 @@ spec:
         app: alloy
     spec:
       serviceAccountName: alloy
+      # The image's own `alloy` user; fsGroup makes the data emptyDir writable.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 473
+        runAsGroup: 473
+        fsGroup: 473
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: alloy
           # Same pin as ALLOY_VERSION in .env.example; bump both together.
@@ -41,11 +49,24 @@ spec:
           ports:
             - name: http
               containerPort: 12345
+          # Not /-/healthy: it fails on any one unhealthy component (e.g. remote down).
+          livenessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /-/ready
               port: http
             initialDelaySeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           volumeMounts:
             - name: config
               mountPath: /etc/alloy
