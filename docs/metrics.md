@@ -222,7 +222,7 @@ Source: [`prom/node-exporter`][nx], embedded in the Alloy agent
 
 ## Container metrics (cAdvisor)
 
-Source: [`gcr.io/cadvisor/cadvisor`][cadv], embedded in the Alloy agent
+Source: [`ghcr.io/google/cadvisor`][cadv], embedded in the Alloy agent
 (`prometheus.exporter.cadvisor`) on every target host.
 
 [cadv]: https://github.com/google/cadvisor

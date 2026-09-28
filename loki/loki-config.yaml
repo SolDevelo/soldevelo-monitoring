@@ -44,7 +44,11 @@ limits_config:
   retention_period: 30d
   reject_old_samples: true
   reject_old_samples_max_age: 168h
+  # Structured metadata needs schema v13; this store is v12. Moving to v13
+  # means a new schema_config period dated after every host has upgraded.
+  allow_structured_metadata: false
 
 compactor:
   working_directory: /loki/compactor
   retention_enabled: true
+  delete_request_store: filesystem

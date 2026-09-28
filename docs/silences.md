@@ -14,7 +14,7 @@ is needed:
 AM=http://localhost:9093   # loopback-only: run on the monitoring host, or ssh -L 9093:localhost:9093
 
 # before the deploy
-SILENCE_ID=$(docker run --rm --entrypoint amtool prom/alertmanager:v0.27.0 \
+SILENCE_ID=$(docker run --rm --entrypoint amtool prom/alertmanager:v0.34.1 \
   --alertmanager.url="$AM" silence add \
   --duration=30m --author="$BUILD_USER" --comment="deploy $BUILD_TAG" \
   deployment=acme environment=prod)
@@ -22,7 +22,7 @@ SILENCE_ID=$(docker run --rm --entrypoint amtool prom/alertmanager:v0.27.0 \
 # ... deploy ...
 
 # after it verifies healthy — don't wait out the 30m
-docker run --rm --entrypoint amtool prom/alertmanager:v0.27.0 \
+docker run --rm --entrypoint amtool prom/alertmanager:v0.34.1 \
   --alertmanager.url="$AM" silence expire "$SILENCE_ID"
 ```
 

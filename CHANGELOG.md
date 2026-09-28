@@ -12,6 +12,26 @@ follows [semver](https://semver.org/).
   (versions from `.env.example`) on each push and PR. Report-only: grades land
   in the run summary, the full HTML report as the `infrascan-report` artifact.
 
+### Changed
+- **Image pins bumped to clear InfraScan's CRITICAL findings** (all in upstream
+  images): Prometheus v2.55.1 → v3.5.5 (LTS), Loki 2.9.10 → 3.7.8, Grafana
+  11.3.0 → 12.4.11-ubuntu, Alertmanager v0.27.0 → v0.34.1, Blackbox v0.25.0 →
+  v0.28.0, Caddy 2.8 → 2.11.4, node-exporter v1.8.2 → v1.12.1, cAdvisor
+  v0.49.1 → v0.60.6 (now `ghcr.io/google/cadvisor`), Alloy v1.5.1 → v1.20.0,
+  kube-state-metrics v2.13.0 → v2.20.0. The Grafana `-ubuntu` variant is used
+  because the Alpine one carries critical OpenSSL CVEs. Blackbox v0.28.0 is
+  the latest release and still has 2 (gRPC server auth, Go TLS session
+  resumption) that its probes don't reach.
+- **Loki 3 config:** `compactor.delete_request_store: filesystem` (required
+  with retention) and `allow_structured_metadata: false` (the store stays on
+  schema v12).
+
+  Upgrade note: an in-place upgrade from 0.7.0 keeps Prometheus TSDB, Loki
+  chunks and the Grafana DB (tested on a live stack). Grafana 12 migrates its
+  DB and cannot be rolled back to 11 without a backup of the `grafana-data`
+  volume — take one first. Pull, then the usual `bin/render-configs.sh` and
+  `up -d --force-recreate`; agents can follow on their own schedule.
+
 ## [0.7.0] — 2026-09-28
 
 ### Added
