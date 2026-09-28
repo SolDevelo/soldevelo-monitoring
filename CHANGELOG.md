@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Containers started outside compose get their own log stream.** They carry
+  no compose service label, so `container` was empty and Loki merged them all
+  into one stream, where one noisy `docker run` spent the per-stream rate limit
+  for every other. The agent now falls back to the container name.
+
 ## [0.6.2] — 2026-09-24
 
 ### Added
