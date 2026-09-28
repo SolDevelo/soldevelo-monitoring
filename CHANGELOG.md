@@ -6,6 +6,15 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Site-specific agent config without editing `config.alloy`.** The agent now
+  runs on the directory `/etc/alloy`, so every `*.alloy` file mounted next to
+  the package's is merged in and can forward to its components (e.g. tail log
+  files that never reach stdout). See `agents-alloy/README.md` § Site-specific
+  config. An agent started with its own compose file keeps working unchanged.
+- **`LOG_DROP_SERVICES`** (agent `.env`): an optional regex of compose service
+  names whose container logs are dropped on the host. Unset drops nothing.
+
 ### Fixed
 - **Containers started outside compose get their own log stream.** They carry
   no compose service label, so `container` was empty and Loki merged them all

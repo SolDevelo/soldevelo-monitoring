@@ -1,5 +1,7 @@
 // Host agent: scrape docker containers + host/container metrics, tail logs,
 // push to the central /ingest/* endpoints. Env-configured. See README.md.
+// Loaded as a directory: any other *.alloy file next to this one is merged in
+// and can forward to the components below (README.md § Site-specific config).
 
 // metrics: app containers (docker SD)
 
@@ -154,6 +156,15 @@ discovery.relabel "logs" {
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
     regex         = "soldevelo-monitoring-agents"
+    action        = "drop"
+  }
+  // LOG_DROP_SERVICES: optional regex of compose service names whose logs never
+  // leave the host (a noisy sidecar, a second log shipper). Unset drops nothing.
+  // The default must not match the empty string, or every container without a
+  // compose service label is dropped — "a^" cannot match anything ("$^" can).
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = coalesce(sys.env("LOG_DROP_SERVICES"), "a^")
     action        = "drop"
   }
   rule {

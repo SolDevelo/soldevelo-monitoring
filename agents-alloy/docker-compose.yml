@@ -25,7 +25,7 @@ services:
     hostname: ${TARGET_NAME}
     command:
       - run
-      - /etc/alloy/config.alloy
+      - /etc/alloy               # every *.alloy in it, merged into one config
       - --server.http.listen-addr=0.0.0.0:12345
       - --storage.path=/var/lib/alloy
     environment:
@@ -36,6 +36,7 @@ services:
       INGEST_METRICS_URL: ${INGEST_METRICS_URL}
       INGEST_LOGS_URL: ${INGEST_LOGS_URL}
       INGEST_TOKEN: ${INGEST_TOKEN}
+      LOG_DROP_SERVICES: ${LOG_DROP_SERVICES:-}
     privileged: true          # cAdvisor cgroup/device access
     pid: host                 # unix exporter sees host processes
     volumes:
