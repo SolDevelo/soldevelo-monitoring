@@ -60,3 +60,32 @@ docker compose --env-file .env -f agents-alloy/docker-compose.yml logs alloy | t
 Add the `monitoring.*` labels to the app's compose services and recreate them
 so the labels take effect (`docker compose up -d` — labels need a container
 recreate).
+
+## Site-specific config
+
+Alloy is started on the directory `/etc/alloy`, and every `*.alloy` file in it
+is merged into one config (subdirectories are ignored). So a deployment adds
+its own pipelines in a separate file instead of editing `config.alloy`, and can
+forward to the package's components by name — `loki.write.central.receiver`,
+`prometheus.remote_write.central.receiver`. Component names must be unique
+across files.
+
+Mount it with a compose override next to the package file:
+
+```yaml
+# docker-compose.site.yml
+services:
+  alloy:
+    volumes:
+      - ./site.alloy:/etc/alloy/site.alloy:ro,z
+```
+
+```sh
+docker compose --env-file .env -f agents-alloy/docker-compose.yml -f docker-compose.site.yml up -d
+```
+
+Typical uses: tailing log files that never reach container stdout
+(`local.file_match` + `loki.source.file`), or filtering one stream with
+`loki.process`. What an extra file cannot do is change the package's own
+pipelines; dropping a service's container logs is `LOG_DROP_SERVICES` in
+`.env` for that reason.
