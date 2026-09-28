@@ -14,6 +14,9 @@ follows [semver](https://semver.org/).
   config. An agent started with its own compose file keeps working unchanged.
 - **`LOG_DROP_SERVICES`** (agent `.env`): an optional regex of compose service
   names whose container logs are dropped on the host. Unset drops nothing.
+- **Spring Boot 1.5 recipe** in `docs/java-app-setup.md`: Micrometer 1.3
+  `micrometer-spring-legacy`, the `/prometheus` endpoint, and the latency
+  buckets under their old name (`distribution.sla`).
 
 ### Fixed
 - **Containers started outside compose get their own log stream.** They carry
