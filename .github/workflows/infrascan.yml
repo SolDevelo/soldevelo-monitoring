@@ -14,6 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Compose images are `name:${X_VERSION}`; InfraScan expands them from its
+      # own env and never reads a repo .env. Only the pins — not the rest of
+      # .env.example (its placeholder SLACK_WEBHOOK_URL would be posted to).
+      - name: Prepare image pins and output dir
+        run: |
+          grep -E '^[A-Z_]+_VERSION=' .env.example > "$RUNNER_TEMP/versions.env"
+          mkdir -p "$RUNNER_TEMP/out" && chmod 777 "$RUNNER_TEMP/out"
+          touch "$RUNNER_TEMP/out/summary.md" && chmod 666 "$RUNNER_TEMP/out/summary.md"
+
       - name: Run InfraScan
         uses: soldevelo/infrascan@v1
         with:
