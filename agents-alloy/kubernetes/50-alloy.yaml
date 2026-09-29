@@ -31,7 +31,7 @@ spec:
       containers:
         - name: alloy
           # Same pin as ALLOY_VERSION in .env.example; bump both together.
-          image: grafana/alloy:v1.20.0
+          image: grafana/alloy:v1.20.1
           args:
             - run
             - /etc/alloy/config.alloy
