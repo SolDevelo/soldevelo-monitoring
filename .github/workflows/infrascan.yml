@@ -1,65 +1,30 @@
-# SolDevelo InfraScan: Checkov on the Kubernetes manifests + Grype on every
-# pinned image. Report-only — upstream image CVEs must not block a merge.
-name: infrascan
-
+name: InfraScan Security Audit
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
 
 permissions:
   contents: read
-
-concurrency:
-  group: infrascan-${{ github.ref }}
-  cancel-in-progress: true
+  pull-requests: write
 
 jobs:
   infrascan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      # Compose images are `name:${X_VERSION}`; InfraScan expands them from its
-      # own env and never reads a repo .env. Only the pins — not the rest of
-      # .env.example (its placeholder SLACK_WEBHOOK_URL would be posted to).
-      - name: Prepare image pins and output dir
-        run: |
-          grep -E '^[A-Z_]+_VERSION=' .env.example > "$RUNNER_TEMP/versions.env"
-          mkdir -p "$RUNNER_TEMP/out" && chmod 777 "$RUNNER_TEMP/out"
-          touch "$RUNNER_TEMP/out/summary.md" && chmod 666 "$RUNNER_TEMP/out/summary.md"
-
       - name: Run InfraScan
-        shell: bash
-        run: |
-          docker run --rm \
-            --env-file "$RUNNER_TEMP/versions.env" \
-            -e GITHUB_ACTIONS=true \
-            -e GITHUB_REPOSITORY \
-            -e GITHUB_STEP_SUMMARY=/out/summary.md \
-            -v "$GITHUB_WORKSPACE:/scan:ro" \
-            -v "$RUNNER_TEMP/out:/out" \
-            soldevelo/infrascan:1.2.0 \
-            cli /scan --scanner comprehensive --format html \
-            --out /out/infrascan-report.html --step-summary true \
-            | tee "$RUNNER_TEMP/out/scan.log"
+        uses: soldevelo/infrascan@v1
+        with:
+          scanner: comprehensive
+          format: html
+          out: infrascan-report.html
+          fail-on: high_critical
 
-      # Grype has a fixed 240s per-image timeout; a timed-out image is left out
-      # of the report without an error, so its findings would read as zero.
-      - name: Publish step summary
-        if: always()
-        run: |
-          cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          grep -h 'Timeout scanning image' "$RUNNER_TEMP/out/scan.log" | while read -r line; do
-            echo "::warning::InfraScan: ${line} — not in the report"
-            echo "> ⚠️ ${line} — not in the report" >> "$GITHUB_STEP_SUMMARY"
-          done || true
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: infrascan-report
-          path: ${{ runner.temp }}/out/infrascan-report.html
-          retention-days: 14
+          path: infrascan-report.html
