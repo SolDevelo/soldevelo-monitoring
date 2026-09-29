@@ -14,6 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Compose images are `name:${X_VERSION}`; the action runs its own docker
+      # run with no env passthrough, so write the .env.example pins into the
+      # compose files of this throwaway checkout. Only the *_VERSION vars.
+      - name: Resolve image pins
+        run: |
+          set -a; . <(grep -E '^[A-Z_]+_VERSION=' .env.example); set +a
+          vars=$(grep -oE '^[A-Z_]+_VERSION' .env.example | sed 's/^/$/' | tr '\n' ' ')
+          for f in stack/docker-compose.yml agents-alloy/docker-compose.yml; do
+            envsubst "$vars" < "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+          done
+          if grep -nE 'image:.*\$\{' stack/docker-compose.yml agents-alloy/docker-compose.yml; then
+            echo "::error::unresolved image pin"; exit 1
+          fi
+
       - name: Run InfraScan
         uses: soldevelo/infrascan@v1
         with:
