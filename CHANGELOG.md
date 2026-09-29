@@ -9,17 +9,21 @@ follows [semver](https://semver.org/).
 ### Added
 - **InfraScan in CI** (`.github/workflows/infrascan.yml`): SolDevelo InfraScan
   runs Checkov on the Kubernetes manifests and Grype on every pinned image
-  (versions from `.env.example`) on each push and PR. Report-only: grades land
+  (versions from `.env.example`, written into the compose files before the
+  scan) on each push and PR. Report-only: grades land
   in the run summary, the full HTML report as the `infrascan-report` artifact.
 
 ### Changed
 - **Image pins bumped to clear InfraScan's CRITICAL findings** (all in upstream
-  images): Prometheus v2.55.1 → v3.5.5 (LTS), Loki 2.9.10 → 3.7.8, Grafana
-  11.3.0 → 12.4.11-ubuntu, Alertmanager v0.27.0 → v0.34.1, Blackbox v0.25.0 →
-  v0.28.0, Caddy 2.8 → 2.11.4, node-exporter v1.8.2 → v1.12.1, cAdvisor
-  v0.49.1 → v0.60.6 (now `ghcr.io/google/cadvisor`), Alloy v1.5.1 → v1.20.0,
+  images): Prometheus v2.55.1 → v3.13.4 (LTS), Loki 2.9.10 → 3.7.8, Grafana
+  11.3.0 → 12.4.12-ubuntu, Alertmanager v0.27.0 → v0.34.1, Blackbox v0.25.0 →
+  v0.28.0, Caddy 2.8 → 2.11.4, node-exporter v1.8.2 → v1.12.1-distroless,
+  cAdvisor v0.49.1 → v0.60.6 (now `ghcr.io/google/cadvisor`), Alloy v1.5.1 →
+  v1.20.1,
   kube-state-metrics v2.13.0 → v2.20.0. The Grafana `-ubuntu` variant is used
-  because the Alpine one carries critical OpenSSL CVEs. Blackbox v0.28.0 is
+  because the Alpine one carries critical OpenSSL CVEs. Prometheus is not on
+  `-distroless`: that image runs as uid 65532, not `nobody`, and cannot open
+  an existing TSDB volume. Blackbox v0.28.0 is
   the latest release and still has 2 (gRPC server auth, Go TLS session
   resumption) that its probes don't reach.
 - **Loki 3 config:** `compactor.delete_request_store: filesystem` (required
