@@ -1,3 +1,6 @@
+[![validate](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml/badge.svg)](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml)
+[![Verified by InfraScan](https://img.shields.io/badge/Verified_by-SolDevelo_InfraScan-0052cc?style=flat&logo=security)](https://github.com/soldevelo/infrascan)
+
 # soldevelo-monitoring
 
 SolDevelo's opinionated, OSS-based monitoring package — open source, usable
@@ -7,7 +10,6 @@ alerts wired to Slack, and a documented metric catalog so the same names mean
 the same things across projects.
 
 **Version:** `0.7.0`. See [`CHANGELOG.md`](CHANGELOG.md).
-[![validate](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml/badge.svg)](https://github.com/SolDevelo/soldevelo-monitoring/actions/workflows/validate.yml)
 
 ## What's in the box
 
