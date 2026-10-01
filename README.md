@@ -9,7 +9,7 @@ Grafana + Alertmanager + Blackbox), pre-baked dashboards-as-code, pre-baked
 alerts wired to Slack, and a documented metric catalog so the same names mean
 the same things across projects.
 
-**Version:** `0.8.0`. See [`CHANGELOG.md`](CHANGELOG.md).
+**Version:** `0.8.1`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in the box
 

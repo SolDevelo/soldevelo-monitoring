@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-10-01
+
 ### Fixed
 - **HTTP probes dashboard has a Deployment filter.** It had only Environment,
   so on a stack serving several deployments their probes were mixed together.
@@ -728,7 +730,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.1...v0.6.2
