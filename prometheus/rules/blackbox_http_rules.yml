@@ -34,8 +34,9 @@ groups:
       # `for: 10m`, as ServiceDown: in a full redeploy the load balancer and UI are
       # back within a minute or two, which ends the suppression, while the services
       # behind them can take minutes more to answer (a Spring Boot one takes
-      # 60-120s). The same `for` lets the ServiceUnreachable -> ServiceDown
-      # inhibition in alertmanager.yml land.
+      # 60-120s). The same `for` makes this alert fire no later than ServiceDown
+      # (10m) and ServiceAbsent (30m), so the inhibition in alertmanager.yml can
+      # mute both for the same service while this one fires.
       - alert: ServiceUnreachable
         expr: |
           probe_success{check="service"} == 0

@@ -161,10 +161,10 @@ so it only shows that the load balancer and UI answer: if routing to every
 service breaks, each service probe fires (grouped into one notification per
 environment) while `AppDown` stays quiet.
 
-While `ServiceUnreachable` fires, Alertmanager mutes `ServiceDown` for the same
-`service`, which is why the label values must match. `SSLCertExpiringSoon`
-skips service probes, since they present the same certificate as the
-deployment's other probes.
+While `ServiceUnreachable` fires, Alertmanager mutes `ServiceDown` and
+`ServiceAbsent` for the same `service`, which is why the label values must
+match. `SSLCertExpiringSoon` skips service probes, since they present the same
+certificate as the deployment's other probes.
 
 `__scrape_interval__` sets the probe interval for that target only; the label
 does not reach the stored series. Several probes per environment at the global
