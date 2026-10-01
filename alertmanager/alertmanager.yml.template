@@ -66,14 +66,15 @@ inhibit_rules:
       - alertname=~"JenkinsDown|RabbitMQDown"
     equal: ["app", "deployment", "environment", "host", "service"]
 
-  # A service unreachable through the load balancer explains its failing scrape.
-  # No `host`: probes don't carry one. Lands because ServiceUnreachable's `for:`
-  # is not longer than ServiceDown's (both 10m); the 1m warning group_wait
-  # covers a tie.
+  # A service unreachable through the load balancer explains its failing scrape
+  # and, once its container is gone, its absence. No `host`: probes don't carry
+  # one. Lands because ServiceUnreachable's `for:` (10m) is not longer than
+  # ServiceDown's (10m) or ServiceAbsent's (30m); the 1m warning group_wait
+  # covers the tie with ServiceDown.
   - source_matchers:
       - alertname="ServiceUnreachable"
     target_matchers:
-      - alertname="ServiceDown"
+      - alertname=~"ServiceDown|ServiceAbsent"
     equal: ["app", "deployment", "environment", "service"]
 
   # Standard hygiene: the critical form of an alert mutes its warning form.

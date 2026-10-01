@@ -44,10 +44,10 @@ follows [semver](https://semver.org/).
   have no privilege escalation, all capabilities dropped, RuntimeDefault
   seccomp and a liveness probe. Existing clusters: an in-place `kubectl apply`
   works; Alloy's WAL is an emptyDir, so nothing on disk is owned by root.
-- **One alert per unreachable service.** Alertmanager mutes `ServiceDown`
-  while `ServiceUnreachable` fires for the same service. `SSLCertExpiringSoon`
-  skips `check: service` probes, which share the certificate of the
-  deployment's other probes.
+- **One alert per unreachable service.** Alertmanager mutes `ServiceDown` and
+  `ServiceAbsent` while `ServiceUnreachable` fires for the same service.
+  `SSLCertExpiringSoon` skips `check: service` probes, which share the
+  certificate of the deployment's other probes.
 
 ## [0.7.0] — 2026-09-28
 
