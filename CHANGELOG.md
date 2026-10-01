@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-01
+
 ### Added
 - **InfraScan in CI** (`.github/workflows/infrascan.yml`): SolDevelo InfraScan
   runs Checkov on the Kubernetes manifests and Grype on every pinned image
@@ -720,7 +722,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.6.0...v0.6.1
