@@ -10,11 +10,23 @@
   "templating": {
     "list": [
       {
+        "name": "deployment",
+        "label": "Deployment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "qryType": 1, "query": "label_values(probe_success, deployment)", "refId": "vars" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
         "name": "environment",
         "label": "Environment",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "qryType": 1, "query": "label_values(probe_success, environment)", "refId": "vars" },
+        "query": { "qryType": 1, "query": "label_values(probe_success{deployment=~\"$deployment\"}, environment)", "refId": "vars" },
         "refresh": 2,
         "includeAll": true,
         "multi": true,
@@ -47,7 +59,7 @@
       },
       "options": { "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [
-        { "expr": "probe_success{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_success{deployment=~\"$deployment\", environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -76,7 +88,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [
         {
-          "expr": "avg_over_time(probe_success{environment=~\"$environment\"}[$__range]) * 100",
+          "expr": "avg_over_time(probe_success{deployment=~\"$deployment\", environment=~\"$environment\"}[$__range]) * 100",
           "legendFormat": "{{instance}}",
           "instant": true,
           "refId": "A"
@@ -91,7 +103,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
-        { "expr": "probe_duration_seconds{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_duration_seconds{deployment=~\"$deployment\", environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -102,7 +114,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "min": 0, "max": 1 } },
       "targets": [
-        { "expr": "probe_success{environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
+        { "expr": "probe_success{deployment=~\"$deployment\", environment=~\"$environment\"}", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -126,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "(probe_ssl_earliest_cert_expiry{environment=~\"$environment\"} - time()) / 86400",
+          "expr": "(probe_ssl_earliest_cert_expiry{deployment=~\"$deployment\", environment=~\"$environment\"} - time()) / 86400",
           "format": "table",
           "instant": true,
           "refId": "A"

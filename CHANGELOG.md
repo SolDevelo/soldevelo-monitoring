@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **HTTP probes dashboard has a Deployment filter.** It had only Environment,
+  so on a stack serving several deployments their probes were mixed together.
+  Deployment comes first and scopes the Environment list, as on the app
+  dashboards.
+
 ## [0.8.0] — 2026-10-01
 
 ### Added
