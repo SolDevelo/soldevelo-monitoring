@@ -53,10 +53,11 @@ each with `UP` / `DOWN` status.
 
 - **HTTP probes dashboard** — probe success status per URL, request
   duration, SSL certificate days remaining.
-- **Alerts** — `ProbeSlow` (>3s for 5m) and `SSLCertExpiringSoon` (<14 days)
-  fire on any newly-added URL. `ProbeFailing` (2m of failed probes) covers URLs
-  without a `check` label; tagged ones are handled by `AppDown` /
-  `PublicUrlUnreachable` (see below).
+- **Alerts** — `ProbeSlow` (>3s for 5m) and `SSLCertExpiringSoon` (<14 days,
+  not for `check: service` probes) fire on any newly-added URL. `ProbeFailing`
+  (2m of failed probes) covers URLs without a `check` label; tagged ones are
+  handled by `AppDown` / `PublicUrlUnreachable` / `ServiceUnreachable` (see
+  below).
 
 ## Probing behaviour
 
@@ -105,7 +106,7 @@ It's picked up by the scrape config's relabel rules:
   reachable, or accept that internal endpoints stay on the internal-only
   probe list (from an internal monitor if you have one).
 
-## Public vs. app-direct availability (the `check` label)
+## Public, app-direct and per-service availability (the `check` label)
 
 When the public URL depends on DNS or an edge you don't control, probe the app
 two ways and tag each with a `check` label so alerts can attribute failures:
@@ -124,6 +125,51 @@ Two alerts key off this:
   a DNS/edge problem outside the app, not an outage.
 
 Leave `check` off for ordinary probes; `ProbeFailing` covers those.
+
+### Per-service probes (`check: service`)
+
+When the entry point routes to several services (a reverse proxy or gateway in
+front of separate backends), add one probe per service through the same path
+as the `app-direct` probe. Tag it `check: service` and give it a `service`
+label with the same value as the `service` label on that service's own metrics:
+
+```json
+[
+  {
+    "targets": ["https://lb.example.com/orders"],
+    "labels": {
+      "app": "myapp",
+      "deployment": "acme",
+      "environment": "prod",
+      "check": "service",
+      "service": "orders",
+      "module": "http_2xx_insecure",
+      "__scrape_interval__": "60s"
+    }
+  }
+]
+```
+
+Pick a path the service itself answers (its root or a health endpoint), so a
+2xx means the request reached that service.
+
+`ServiceUnreachable` (critical) fires when a service probe has failed for 10m
+while the `app-direct` probe of the same `app`/`deployment`/`environment`
+succeeds. A whole-app outage is left to `AppDown`. The `app-direct` probe
+usually hits the load-balancer root, which the web server serves from the UI,
+so it only shows that the load balancer and UI answer: if routing to every
+service breaks, each service probe fires (grouped into one notification per
+environment) while `AppDown` stays quiet.
+
+While `ServiceUnreachable` fires, Alertmanager mutes `ServiceDown` for the same
+`service`, which is why the label values must match. `SSLCertExpiringSoon`
+skips service probes, since they present the same certificate as the
+deployment's other probes.
+
+`__scrape_interval__` sets the probe interval for that target only; the label
+does not reach the stored series. Several probes per environment at the global
+15s add up in the app's access logs. At 60s, `for: 10m` still means ten failed
+probes before the alert.
 
 ## Common gotchas
 

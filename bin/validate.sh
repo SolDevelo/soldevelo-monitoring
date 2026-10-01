@@ -71,9 +71,10 @@ if docker run --rm -v "${REPO_ROOT}:/work:ro" --entrypoint sh "${PROM_IMG}" \
      -c 'promtool check rules /work/prometheus/rules/*.yml /work/prometheus/rules_meta/*.yml'; then
   ok "rules"; else fail "promtool check rules"; fi
 
-step "promtool test rules (absence rules)"
-# The absence rules fail silently by construction — a broken one is
-# indistinguishable from a healthy system — so their semantics are pinned here.
+step "promtool test rules (unit tests)"
+# Rules whose mistakes don't show on a healthy system get unit tests: the
+# absence rules (a broken one is indistinguishable from a healthy system) and
+# the service-probe rules (suppression and timing only matter in an outage).
 if docker run --rm -v "${REPO_ROOT}:/work:ro" --entrypoint sh "${PROM_IMG}" \
      -c 'cd /work/prometheus/tests && promtool test rules *.yml'; then
   ok "unit tests"; else fail "promtool test rules"; fi

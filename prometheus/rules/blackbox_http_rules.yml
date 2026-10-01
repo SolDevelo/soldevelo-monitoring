@@ -1,8 +1,9 @@
 groups:
   - name: blackbox
     rules:
-      # Untagged probes. Probes tagged with a `check` label (public / app-direct)
-      # are handled by AppDown / PublicUrlUnreachable below.
+      # Untagged probes. Probes tagged with a `check` label (public / app-direct /
+      # service) are handled by AppDown / PublicUrlUnreachable / ServiceUnreachable
+      # below.
       - alert: ProbeFailing
         expr: probe_success{check=""} == 0
         for: 2m
@@ -21,6 +22,30 @@ groups:
         annotations:
           summary: "Application down: {{ $labels.deployment }}/{{ $labels.environment }}"
           description: "The app-direct probe ({{ $labels.instance }}), which bypasses the public DNS, has been failing for 2m — the application itself is unreachable."
+
+      # One probe per service behind the app's entry point (`check: service`, plus a
+      # `service` label), e.g. <load balancer>/<service>. Reported only while the
+      # app-direct probe of the same app/deployment/environment succeeds. That probe
+      # hits the load-balancer root, which the web server usually serves from the UI,
+      # so it shows that the load balancer and UI answer, not every backend: if
+      # routing to all services breaks, every service probe fires (grouped into one
+      # notification per environment) and AppDown stays quiet.
+      #
+      # `for: 10m`, as ServiceDown: in a full redeploy the load balancer and UI are
+      # back within a minute or two, which ends the suppression, while the services
+      # behind them can take minutes more to answer (a Spring Boot one takes
+      # 60-120s). The same `for` lets the ServiceUnreachable -> ServiceDown
+      # inhibition in alertmanager.yml land.
+      - alert: ServiceUnreachable
+        expr: |
+          probe_success{check="service"} == 0
+            unless on (app, deployment, environment) (probe_success{check="app-direct"} == 0)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service unreachable: {{ $labels.service }} ({{ $labels.environment }})"
+          description: "The probe of {{ $labels.instance }} has failed for 10m while the load balancer and UI still answer. '{{ $labels.service }}' is down or no longer routed."
 
       # Public URL down while the app is up = DNS/edge issue outside our control.
       - alert: PublicUrlUnreachable
@@ -41,8 +66,11 @@ groups:
           summary: "HTTP probe slow: {{ $labels.instance }}"
           description: "Blackbox HTTP probe to {{ $labels.instance }} took >3s for 5m."
 
+      # Service probes (`check: service`) go through the same entry point, so the
+      # same certificate, as the deployment's public or app-direct probe. Counting
+      # them would turn one expiring certificate into a warning per service.
       - alert: SSLCertExpiringSoon
-        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 24 * 3600
+        expr: probe_ssl_earliest_cert_expiry{check!="service"} - time() < 14 * 24 * 3600
         for: 10m
         labels:
           severity: warning

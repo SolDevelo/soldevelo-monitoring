@@ -1,6 +1,6 @@
 # Unit tests for the absence rules. These are the rules whose failure mode is
-# silence — a broken one looks exactly like a healthy system — so they get the
-# only unit tests in the package.
+# silence — a broken one looks exactly like a healthy system — so their
+# semantics are pinned here.
 #
 # Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
 rule_files:

@@ -1,0 +1,187 @@
+# Unit tests for the service-probe parts of the blackbox rules: when
+# ServiceUnreachable fires, when the app-direct probe suppresses it, and which
+# probes SSLCertExpiringSoon counts. None of that shows on a healthy system.
+#
+# Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
+rule_files:
+  - ../rules/blackbox_http_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: ServiceUnreachable fires 10m after one service stops answering while the load balancer and UI answer
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x30"
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x40"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ServiceUnreachable
+        exp_alerts: []          # failing since 11m, inside `for: 10m`
+      - eval_time: 25m
+        alertname: ServiceUnreachable
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceUnreachable
+              severity: critical
+              job: blackbox_http
+              instance: https://lb.example/orders
+              app: acme
+              deployment: d1
+              environment: prod
+              check: service
+              service: orders
+            exp_annotations:
+              summary: "Service unreachable: orders (prod)"
+              description: "The probe of https://lb.example/orders has failed for 10m while the load balancer and UI still answer. 'orders' is down or no longer routed."
+
+  - interval: 1m
+    name: A service restart shorter than 10m does not alert
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x8 1x20"   # down 11m-19m
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x40"
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: ServiceUnreachable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: ServiceUnreachable
+        exp_alerts: []
+
+  - interval: 1m
+    name: A full redeploy does not page when the UI is back after 2m and the service after 9m
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x8 1x20"   # down 11m-19m
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x10 0x1 1x30"   # down 11m-12m
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: ServiceUnreachable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: ServiceUnreachable
+        exp_alerts: []
+
+  - interval: 1m
+    name: A whole-app outage raises AppDown, not one alert per service
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x30"
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x10 0x30"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ServiceUnreachable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: AppDown
+        exp_alerts:
+          - exp_labels:
+              alertname: AppDown
+              severity: critical
+              job: blackbox_http
+              instance: https://lb.example
+              app: acme
+              deployment: d1
+              environment: prod
+              check: app-direct
+            exp_annotations:
+              summary: "Application down: d1/prod"
+              description: "The app-direct probe (https://lb.example), which bypasses the public DNS, has been failing for 2m — the application itself is unreachable."
+
+  - interval: 1m
+    name: A service still down after the app recovers alerts 10m after the recovery
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x40"
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x10 0x5 1x35"   # down 11m-16m
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ServiceUnreachable
+        exp_alerts: []          # suppressed until 16m, pending from 17m
+      - eval_time: 28m
+        alertname: ServiceUnreachable
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceUnreachable
+              severity: critical
+              job: blackbox_http
+              instance: https://lb.example/orders
+              app: acme
+              deployment: d1
+              environment: prod
+              check: service
+              service: orders
+            exp_annotations:
+              summary: "Service unreachable: orders (prod)"
+              description: "The probe of https://lb.example/orders has failed for 10m while the load balancer and UI still answer. 'orders' is down or no longer routed."
+
+  - interval: 1m
+    name: An outage in another environment does not hide this one
+    input_series:
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "1x10 0x30"
+      - series: 'probe_success{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "1x40"
+      - series: 'probe_success{job="blackbox_http",instance="https://uat-lb.example",app="acme",deployment="d1",environment="uat",check="app-direct"}'
+        values: "1x10 0x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ServiceUnreachable
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceUnreachable
+              severity: critical
+              job: blackbox_http
+              instance: https://lb.example/orders
+              app: acme
+              deployment: d1
+              environment: prod
+              check: service
+              service: orders
+            exp_annotations:
+              summary: "Service unreachable: orders (prod)"
+              description: "The probe of https://lb.example/orders has failed for 10m while the load balancer and UI still answer. 'orders' is down or no longer routed."
+
+  - interval: 1m
+    name: SSLCertExpiringSoon skips service probes and still covers the others
+    input_series:
+      - series: 'probe_ssl_earliest_cert_expiry{job="blackbox_http",instance="https://lb.example/orders",app="acme",deployment="d1",environment="prod",check="service",service="orders"}'
+        values: "0x20"          # long expired, always inside the 14-day window
+      - series: 'probe_ssl_earliest_cert_expiry{job="blackbox_http",instance="https://lb.example",app="acme",deployment="d1",environment="prod",check="app-direct"}'
+        values: "0x20"
+      - series: 'probe_ssl_earliest_cert_expiry{job="blackbox_http",instance="https://status.example",app="acme",deployment="d1",environment="prod"}'
+        values: "0x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: SSLCertExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              alertname: SSLCertExpiringSoon
+              severity: warning
+              job: blackbox_http
+              instance: https://lb.example
+              app: acme
+              deployment: d1
+              environment: prod
+              check: app-direct
+            exp_annotations:
+              summary: "SSL cert expiring soon: https://lb.example"
+              description: "Certificate for https://lb.example expires in less than 14 days."
+          - exp_labels:
+              alertname: SSLCertExpiringSoon
+              severity: warning
+              job: blackbox_http
+              instance: https://status.example
+              app: acme
+              deployment: d1
+              environment: prod
+            exp_annotations:
+              summary: "SSL cert expiring soon: https://status.example"
+              description: "Certificate for https://status.example expires in less than 14 days."
