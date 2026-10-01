@@ -11,6 +11,14 @@ follows [semver](https://semver.org/).
   runs Checkov on the Kubernetes manifests and Grype on every pinned image
   (versions from `.env.example`) on each push and PR. Report-only: grades land
   in the run summary, the full HTML report as the `infrascan-report` artifact.
+- **Per-service probes (`check: service`).** A blackbox target tagged
+  `check: service`, with a `service` label, probes one service behind the
+  app's entry point. The new `ServiceUnreachable` rule (critical) fires after
+  10m of failures while the `app-direct` probe of the same
+  app/deployment/environment succeeds, so a whole-app outage stays a single
+  `AppDown`. Unit tests are in `prometheus/tests/blackbox_http_rules_test.yml`,
+  and `docs/blackbox-setup.md` covers the target format and the per-target
+  `__scrape_interval__`.
 
 ### Changed
 - **Image pins bumped to clear InfraScan's CRITICAL findings** (all in upstream
@@ -36,6 +44,10 @@ follows [semver](https://semver.org/).
   have no privilege escalation, all capabilities dropped, RuntimeDefault
   seccomp and a liveness probe. Existing clusters: an in-place `kubectl apply`
   works; Alloy's WAL is an emptyDir, so nothing on disk is owned by root.
+- **One alert per unreachable service.** Alertmanager mutes `ServiceDown`
+  while `ServiceUnreachable` fires for the same service. `SSLCertExpiringSoon`
+  skips `check: service` probes, which share the certificate of the
+  deployment's other probes.
 
 ## [0.7.0] — 2026-09-28
 

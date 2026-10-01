@@ -84,7 +84,7 @@ the same things across projects.
 - **Container**: `ContainerHighMemoryVsLimit`, `ContainerOOMKilled`,
   `ContainerRestartLoop`.
 - **HTTP probes**: `ProbeFailing`, `AppDown`, `PublicUrlUnreachable`,
-  `ProbeSlow`, `SSLCertExpiringSoon`.
+  `ServiceUnreachable`, `ProbeSlow`, `SSLCertExpiringSoon`.
 - **JVM**: `JvmHeapPressure`, `JvmGCThrashing`, `JvmMetaspacePressure`,
   `JvmThreadGrowth`, `HttpServerErrorRateHigh`, `HttpClientErrorRateHigh`,
   `HttpLatencyP95High`, `HikariCPPoolExhausted`.
