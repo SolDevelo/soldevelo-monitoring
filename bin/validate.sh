@@ -121,8 +121,10 @@ route_expect "heartbeat-disabled" alertname=Watchdog
 route_expect "null"               environment=dev severity=critical
 route_expect "slack-prod"         environment=prod severity=critical
 route_expect "slack-prod"         environment=prod severity=warning
-route_expect "slack"              environment=uat severity=critical
-route_expect "slack"              environment=uat severity=warning
+route_expect "slack-uat"          environment=uat severity=critical
+route_expect "slack-uat"          environment=uat severity=warning
+route_expect "slack-staging"      environment=staging severity=critical
+route_expect "slack-staging"      environment=staging severity=warning
 # An alert with no environment label must still land somewhere visible.
 route_expect "slack"              severity=critical
 [[ "${routes_bad}" == 0 ]] && ok "routing" || fail "amtool routes test"

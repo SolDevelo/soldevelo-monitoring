@@ -28,9 +28,10 @@ route:
     - matchers:
         - environment="dev"
       receiver: "null"
-    # Production gets its own channel. Must precede the severity route below,
-    # or critical prod alerts would match that one and land in the default
-    # channel. Falls back to the default webhook when no prod one is set.
+    # prod, uat and staging each get their own channel. These must precede the
+    # severity route below, or their critical alerts would match that one and
+    # land in the default channel. Each falls back to the default webhook and
+    # channel when its own is not set.
     - matchers:
         - environment="prod"
       receiver: slack-prod
@@ -38,6 +39,26 @@ route:
         - matchers:
             - severity="critical"
           receiver: slack-prod
+          group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 4h
+    - matchers:
+        - environment="uat"
+      receiver: slack-uat
+      routes:
+        - matchers:
+            - severity="critical"
+          receiver: slack-uat
+          group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 4h
+    - matchers:
+        - environment="staging"
+      receiver: slack-staging
+      routes:
+        - matchers:
+            - severity="critical"
+          receiver: slack-staging
           group_wait: 10s
           group_interval: 5m
           repeat_interval: 4h
@@ -110,6 +131,30 @@ receivers:
     slack_configs:
       - api_url: "${SLACK_WEBHOOK_URL_PROD}"
         channel: "${SLACK_CHANNEL_PROD}"
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
+        text: |
+          {{ range .Alerts -}}
+          *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ if .Annotations.runbook_url }}<{{ .Annotations.runbook_url }}|runbook> · {{ end }}<${MONITORING_SITE}|open grafana>
+          {{ end }}
+  - name: slack-uat
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL_UAT}"
+        channel: "${SLACK_CHANNEL_UAT}"
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
+        text: |
+          {{ range .Alerts -}}
+          *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ if .Annotations.runbook_url }}<{{ .Annotations.runbook_url }}|runbook> · {{ end }}<${MONITORING_SITE}|open grafana>
+          {{ end }}
+  - name: slack-staging
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL_STAGING}"
+        channel: "${SLACK_CHANNEL_STAGING}"
         send_resolved: true
         title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
         text: |

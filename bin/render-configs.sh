@@ -32,12 +32,17 @@ set +a
 # or envsubst leaves the literal '${VAR}' in the output and the config is invalid.
 : "${SLACK_WEBHOOK_URL_PROD:=${SLACK_WEBHOOK_URL:-}}"
 : "${SLACK_CHANNEL_PROD:=${SLACK_CHANNEL:-}}"
+: "${SLACK_WEBHOOK_URL_UAT:=${SLACK_WEBHOOK_URL:-}}"
+: "${SLACK_CHANNEL_UAT:=${SLACK_CHANNEL:-}}"
+: "${SLACK_WEBHOOK_URL_STAGING:=${SLACK_WEBHOOK_URL:-}}"
+: "${SLACK_CHANNEL_STAGING:=${SLACK_CHANNEL:-}}"
 # Dead man's switch is inert until HEARTBEAT_URL points at a real endpoint:
 # the Watchdog route defaults to a receiver that discards. See
 # docs/dead-man-switch.md.
 : "${WATCHDOG_RECEIVER:=heartbeat-disabled}"
 : "${HEARTBEAT_URL:=https://heartbeat.invalid/not-configured}"
-export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD WATCHDOG_RECEIVER HEARTBEAT_URL
+export SLACK_WEBHOOK_URL_PROD SLACK_CHANNEL_PROD SLACK_WEBHOOK_URL_UAT SLACK_CHANNEL_UAT \
+  SLACK_WEBHOOK_URL_STAGING SLACK_CHANNEL_STAGING WATCHDOG_RECEIVER HEARTBEAT_URL
 
 # Caddy site address. A plain-http MONITORING_SITE is served as a bare `:port`
 # so any Host header reaches the site (a named site answers a foreign Host with
@@ -69,7 +74,8 @@ var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
   | sed -E 's/=.*//' \
   | sed 's/^/$/' \
   | tr '\n' ' ')
-var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE'
+var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $SLACK_WEBHOOK_URL_UAT $SLACK_CHANNEL_UAT'
+var_list+=' $SLACK_WEBHOOK_URL_STAGING $SLACK_CHANNEL_STAGING $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE'
 
 found_any=0
 while IFS= read -r -d '' template; do
