@@ -6,6 +6,14 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **A Slack channel per environment.** `environment="uat"` and `"staging"`
+  alerts now have their own receivers, `slack-uat` and `slack-staging`, set
+  with the optional `SLACK_WEBHOOK_URL_UAT` / `SLACK_CHANNEL_UAT` and
+  `SLACK_WEBHOOK_URL_STAGING` / `SLACK_CHANNEL_STAGING`, alongside the existing
+  `_PROD` pair. Unset, each falls back to `SLACK_WEBHOOK_URL` /
+  `SLACK_CHANNEL`, so an existing `.env` routes exactly as before.
+
 ## [0.8.1] — 2026-10-01
 
 ### Fixed
