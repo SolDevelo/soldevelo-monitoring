@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-10-05
+
 ### Added
 - **`RabbitMQDeadLettered`**: a dead-letter queue holds more messages than it
   did 15m ago. It fires once per batch of failures and resolves on its own,
@@ -759,7 +761,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.7.0...v0.8.0
