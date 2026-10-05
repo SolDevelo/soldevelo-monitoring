@@ -13,9 +13,9 @@ follows [semver](https://semver.org/).
 
 ### Changed
 - **`RabbitMQNoConsumers` skips dead-letter queues**, recognised by name
-  (`dlq` or `dead-letter` as a word separated by `.`, `_` or `-`). A DLQ has
-  no consumer by design, so any message in it kept the alert firing; a DLQ
-  holding 18 messages fired it for over a week. New dead letters now raise
+  (`dlq` or `dead-letter(s)` as a `._-`-separated word or a camelCase part;
+  see `docs/rabbitmq-setup.md`). A DLQ has no consumer by design, so any
+  message in it kept the alert firing. New dead letters now raise
   `RabbitMQDeadLettered` instead.
 
 ### Fixed

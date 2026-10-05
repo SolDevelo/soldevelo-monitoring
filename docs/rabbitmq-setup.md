@@ -71,10 +71,19 @@ Alerts: **`prometheus/rules/rabbitmq_rules.yml`**:
   Dead-letter queues are skipped: no consumer is their normal state.
 - `RabbitMQDeadLettered` — a dead-letter queue holds more messages than 15m
   ago. Fires once per batch of failures and resolves while the queue is still
-  undrained. A queue counts as a DLQ by name: `dlq` or `dead-letter` /
-  `deadletter` as a whole word separated by `.`, `_` or `-`, any case
-  (`dlq_x`, `x_dlq`, `x_dlq_y`, `x.dead-letter`). Name DLQs that way, or they
-  are alerted as ordinary queues.
+  undrained.
+
+  A queue counts as a DLQ **by name**: `dlq`, `dead-letter`, `deadletter` or
+  their plurals, either as a word separated by `.`, `_` or `-` in any case
+  (`dlq_x`, `x_dlq_y`, `x.dead-letters`), or as a camelCase part (`xDlq`,
+  `xDeadLetterQueue`). Any other name (e.g. MassTransit's `x_error`) is
+  alerted as an ordinary queue, so rename it or override the rules in an overlay.
+
+  The alert watches the queue's length, so it **misses dead letters that do
+  not grow the queue**: a DLQ capped with `x-max-length` that is already full
+  drops its oldest message for each new one, and one with `x-message-ttl` can
+  expire messages as fast as they arrive. Leave DLQs uncapped, or watch them
+  another way.
 - `RabbitMQQueueBacklog` — >10k messages sitting for 15m (tighten per-project).
 - `RabbitMQDiskLow` — <5 GB free. RabbitMQ *blocks all publishers* when disk
   fills, so this is a real cliff.

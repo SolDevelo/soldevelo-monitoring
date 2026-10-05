@@ -14,11 +14,12 @@ groups:
 
       - alert: RabbitMQNoConsumers
         # Dead-letter queues have no consumer by design; RabbitMQDeadLettered
-        # covers them. Both rules carry the same DLQ name regex: dlq_x, x_dlq,
-        # x_dlq_y, x.dead-letter, x_deadletter_y (any of `._-`, any case).
+        # covers them. Both rules carry the same DLQ name regex: dlq or
+        # dead-letter(s) as a `._-`-separated word in any case (x_dlq,
+        # x.dead-letters), or camelCase (xDlq, xDeadLetterQueue).
         expr: |
-          rabbitmq_queue_consumers{queue!~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} == 0
-            and rabbitmq_queue_messages{queue!~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} > 0
+          rabbitmq_queue_consumers == 0
+            and rabbitmq_queue_messages{queue!~"(?i:(.*[._-])?(dlq|dead[._-]?letters?)([._-].*)?)|.*([Dd]lq|DLQ|[Dd]eadLetter)s?([A-Z0-9._-].*)?"} > 0
         for: 5m
         labels:
           severity: warning
@@ -31,8 +32,8 @@ groups:
         # than it did 15m ago, so one batch of failures alerts once and a
         # DLQ nobody has drained yet stays quiet.
         expr: |
-          rabbitmq_queue_messages{queue=~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"}
-            > rabbitmq_queue_messages{queue=~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} offset 15m
+          rabbitmq_queue_messages{queue=~"(?i:(.*[._-])?(dlq|dead[._-]?letters?)([._-].*)?)|.*([Dd]lq|DLQ|[Dd]eadLetter)s?([A-Z0-9._-].*)?"}
+            > rabbitmq_queue_messages offset 15m
         labels:
           severity: warning
         annotations:
