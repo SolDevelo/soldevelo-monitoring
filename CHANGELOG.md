@@ -6,6 +6,18 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`RabbitMQDeadLettered`**: a dead-letter queue holds more messages than it
+  did 15m ago. It fires once per batch of failures and resolves on its own,
+  so a DLQ nobody has drained yet does not keep alerting.
+
+### Changed
+- **`RabbitMQNoConsumers` skips dead-letter queues**, recognised by name
+  (`dlq` or `dead-letter` as a word separated by `.`, `_` or `-`). A DLQ has
+  no consumer by design, so any message in it kept the alert firing; a DLQ
+  holding 18 messages fired it for over a week. New dead letters now raise
+  `RabbitMQDeadLettered` instead.
+
 ### Fixed
 - **`ContainerHighMemoryVsLimit` no longer fires on page cache.** It compared
   `container_memory_usage_bytes`, which includes reclaimable cache, with the

@@ -88,7 +88,7 @@ the same things across projects.
 - **JVM**: `JvmHeapPressure`, `JvmGCThrashing`, `JvmMetaspacePressure`,
   `JvmThreadGrowth`, `HttpServerErrorRateHigh`, `HttpClientErrorRateHigh`,
   `HttpLatencyP95High`, `HikariCPPoolExhausted`.
-- **RabbitMQ**: `RabbitMQDown`, `RabbitMQNoConsumers`,
+- **RabbitMQ**: `RabbitMQDown`, `RabbitMQNoConsumers`, `RabbitMQDeadLettered`,
   `RabbitMQQueueBacklog`, `RabbitMQDiskLow`.
 - **PostgreSQL**: `PostgreSQLDown`, `PostgreSQLTooManyConnections`,
   `PostgreSQLLowCacheHitRatio`, `PostgreSQLDeadlocks`,
