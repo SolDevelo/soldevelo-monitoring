@@ -9,8 +9,8 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
-  # A work queue with messages and no consumer still alerts; DLQs in each
-  # naming style do not.
+  # Work queues with messages and no consumer still alert, near-miss names
+  # included; DLQs in each naming style do not.
   - interval: 1m
     name: RabbitMQNoConsumers ignores dead-letter queues
     input_series:
@@ -30,6 +30,30 @@ tests:
         values: "0+0x20"
       - series: 'rabbitmq_queue_messages{queue="orders.Dead-Letter",host="h1"}'
         values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="orders.dead_letters",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="orders.dead_letters",host="h1"}'
+        values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="ordersDlq",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="ordersDlq",host="h1"}'
+        values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="ordersDeadLetterQueue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="ordersDeadLetterQueue",host="h1"}'
+        values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="deadLetters",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="deadLetters",host="h1"}'
+        values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="deadline_queue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="deadline_queue",host="h1"}'
+        values: "1+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="handler_queue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="handler_queue",host="h1"}'
+        values: "1+0x20"
     alert_rule_test:
       - eval_time: 10m
         alertname: RabbitMQNoConsumers
@@ -42,6 +66,22 @@ tests:
             exp_annotations:
               summary: "RabbitMQ queue 'scraper_target_queue' has messages but no consumers"
               description: "Queue 'scraper_target_queue' on h1 has held messages with zero consumers for 5m."
+          - exp_labels:
+              alertname: RabbitMQNoConsumers
+              severity: warning
+              queue: deadline_queue
+              host: h1
+            exp_annotations:
+              summary: "RabbitMQ queue 'deadline_queue' has messages but no consumers"
+              description: "Queue 'deadline_queue' on h1 has held messages with zero consumers for 5m."
+          - exp_labels:
+              alertname: RabbitMQNoConsumers
+              severity: warning
+              queue: handler_queue
+              host: h1
+            exp_annotations:
+              summary: "RabbitMQ queue 'handler_queue' has messages but no consumers"
+              description: "Queue 'handler_queue' on h1 has held messages with zero consumers for 5m."
 
   # Messages land in the DLQ at minute 30 and stay. Fires at once, resolves
   # 15m later although nobody drained the queue.
