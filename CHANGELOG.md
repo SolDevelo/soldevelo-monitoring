@@ -6,6 +6,13 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`ContainerHighMemoryVsLimit` no longer fires on page cache.** It compared
+  `container_memory_usage_bytes`, which includes reclaimable cache, with the
+  limit, so a healthy Postgres container read 94–100% and fired permanently.
+  It now uses `container_memory_working_set_bytes`, as do the Containers
+  dashboard's memory panels.
+
 ## [0.9.0] — 2026-10-02
 
 ### Added

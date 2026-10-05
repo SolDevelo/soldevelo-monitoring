@@ -90,7 +90,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
+          "expr": "sum by (name) (container_memory_working_set_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -118,7 +118,7 @@
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
+          "expr": "sum(container_memory_working_set_bytes{host=\"$host\",environment=~\"$environment\",container_label_com_docker_compose_service=~\"$container\",name!=\"\"})",
           "refId": "A"
         }
       ]

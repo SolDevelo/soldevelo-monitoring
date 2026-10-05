@@ -1,0 +1,48 @@
+# Unit tests for ContainerHighMemoryVsLimit. Pins that it reads the working
+# set, not usage: page cache fills a database container's limit while healthy.
+#
+# Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
+rule_files:
+  - ../rules/container_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Postgres-like: usage at 98% of a 2 GiB limit (mostly cache), working set 68%.
+  - interval: 1m
+    name: ContainerHighMemoryVsLimit ignores page cache
+    input_series:
+      - series: 'container_memory_usage_bytes{name="db",host="h1"}'
+        values: "2104533975+0x30"
+      - series: 'container_memory_working_set_bytes{name="db",host="h1"}'
+        values: "1460288880+0x30"
+      - series: 'container_spec_memory_limit_bytes{name="db",host="h1"}'
+        values: "2147483648+0x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ContainerHighMemoryVsLimit
+        exp_alerts: []
+
+  # Working set itself above 90% for longer than `for: 15m`.
+  - interval: 1m
+    name: ContainerHighMemoryVsLimit fires on working set above 90%
+    input_series:
+      - series: 'container_memory_working_set_bytes{name="app",host="h1"}'
+        values: "1997174784+0x30"
+      - series: 'container_spec_memory_limit_bytes{name="app",host="h1"}'
+        values: "2147483648+0x30"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ContainerHighMemoryVsLimit
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ContainerHighMemoryVsLimit
+        exp_alerts:
+          - exp_labels:
+              alertname: ContainerHighMemoryVsLimit
+              severity: warning
+              name: app
+              host: h1
+            exp_annotations:
+              summary: "Container app memory > 90% of limit"
+              description: "'app' on h1 has been above 90% of its memory limit for 15m."

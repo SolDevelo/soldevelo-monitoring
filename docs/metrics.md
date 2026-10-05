@@ -259,6 +259,19 @@ Source: [`ghcr.io/google/cadvisor`][cadv], embedded in the Alloy agent
 - **Means:** Container's current resident memory (RSS + cache).
 - **Does NOT mean:** "how much can be reclaimed under pressure" —
   page cache included in this number can usually be evicted.
+  Never compare it with the limit: a database fills its limit with cache and
+  reads ~100% while healthy.
+
+### `container_memory_working_set_bytes`
+
+- **Type:** gauge
+- **Unit:** bytes
+- **Labels:** `name`, `id`, `image`, `host`
+- **Means:** Usage minus inactive page cache — the memory the kernel cannot
+  readily reclaim, and what it weighs against the limit before an OOM kill.
+  `ContainerHighMemoryVsLimit` and the Containers dashboard use this.
+- **Does NOT mean:** RSS only — active page cache and shared memory (e.g.
+  Postgres `shared_buffers`) are in it.
 
 ### `container_spec_memory_limit_bytes`
 
