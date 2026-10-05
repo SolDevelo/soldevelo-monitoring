@@ -39,8 +39,10 @@ groups:
       - alert: ContainerHighMemoryVsLimit
         # for: 15m (not 5m) prevents flapping when memory oscillates around
         # the threshold — brief dips below reset the timer.
+        # Working set, not usage: usage counts reclaimable page cache, so a
+        # database container sits at ~100% of its limit while healthy.
         expr: |
-          container_memory_usage_bytes{name!=""}
+          container_memory_working_set_bytes{name!=""}
             / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
         for: 15m
         labels:
