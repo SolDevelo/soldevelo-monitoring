@@ -1,0 +1,77 @@
+# Unit tests for the Kubernetes replica rules: they must fire on a workload
+# short of its desired replicas, and stay quiet while a rollout progresses.
+rule_files:
+  - ../rules/kubernetes_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: KubeDeploymentReplicasMismatch fires when a replica is lost and not replaced
+    input_series:
+      - series: 'kube_deployment_spec_replicas{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "3+0x60"
+      - series: 'kube_deployment_status_replicas_available{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "3+0x20 2+0x40"
+      - series: 'kube_deployment_status_replicas_updated{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "3+0x60"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts: []          # inside `for: 15m`
+      - eval_time: 40m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              alertname: KubeDeploymentReplicasMismatch
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              namespace: default
+              exported_deployment: scraper-deployment
+              workload: scraper-deployment
+            exp_annotations:
+              summary: "Deployment below desired replicas: default/scraper-deployment (prod)"
+              description: "Deployment 'default/scraper-deployment' on h1 has had fewer available replicas than desired for 15m, and no rollout is progressing."
+
+  - interval: 1m
+    name: KubeDeploymentReplicasMismatch stays quiet while a rollout progresses
+    input_series:
+      - series: 'kube_deployment_spec_replicas{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "3+0x60"
+      - series: 'kube_deployment_status_replicas_available{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "3+0x10 2+0x40 3+0x10"
+      - series: 'kube_deployment_status_replicas_updated{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",exported_deployment="scraper-deployment"}'
+        values: "0+0x10 1+0x8 2+0x8 3+0x8 1+0x8 2+0x8 3+0x9"
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: KubeDeploymentReplicasMismatch
+        exp_alerts: []
+
+  - interval: 1m
+    name: KubeStatefulSetReplicasMismatch fires when a replica is not ready
+    input_series:
+      - series: 'kube_statefulset_replicas{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",statefulset="postgres"}'
+        values: "2+0x60"
+      - series: 'kube_statefulset_status_replicas_ready{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",statefulset="postgres"}'
+        values: "2+0x20 1+0x40"
+      - series: 'kube_statefulset_status_replicas_updated{app="acme",deployment="d1",environment="prod",host="h1",job="kube-state",instance="ksm:8080",service="kube-state-metrics",namespace="default",statefulset="postgres"}'
+        values: "2+0x60"
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: KubeStatefulSetReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              alertname: KubeStatefulSetReplicasMismatch
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              namespace: default
+              statefulset: postgres
+            exp_annotations:
+              summary: "StatefulSet below desired replicas: default/postgres (prod)"
+              description: "StatefulSet 'default/postgres' on h1 has had fewer ready replicas than desired for 15m, and no rollout is progressing."

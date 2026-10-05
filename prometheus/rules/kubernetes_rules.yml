@@ -1,0 +1,59 @@
+# Kubernetes workload state, from kube-state-metrics (job="kube-state", see
+# agents-alloy/kubernetes/). The orchestrator declares how many replicas should
+# run, so these compare desired with ready instead of inferring an inventory
+# from history like ServiceAbsent. No series off Kubernetes, so silent there.
+#
+# Shapes follow kubernetes-mixin. The agent's `deployment` label wins the
+# collision with kube-state's, which arrives as `exported_deployment`;
+# `workload` carries it into the alert under a readable name.
+groups:
+  - name: kubernetes
+    rules:
+      - alert: KubeDeploymentReplicasMismatch
+        # `changes(...updated) == 0`: not while a rollout is still progressing.
+        # A rollout that never gets its new pods ready stops changing and fires.
+        expr: |
+          label_replace(
+            (
+              max by (app, deployment, environment, host, namespace, exported_deployment) (
+                kube_deployment_spec_replicas{job="kube-state"}
+              )
+              >
+              max by (app, deployment, environment, host, namespace, exported_deployment) (
+                kube_deployment_status_replicas_available{job="kube-state"}
+              )
+            )
+            and on (host, namespace, exported_deployment)
+            max by (host, namespace, exported_deployment) (
+              changes(kube_deployment_status_replicas_updated{job="kube-state"}[10m])
+            ) == 0,
+            "workload", "$1", "exported_deployment", "(.*)"
+          )
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment below desired replicas: {{ $labels.namespace }}/{{ $labels.workload }} ({{ $labels.environment }})"
+          description: "Deployment '{{ $labels.namespace }}/{{ $labels.workload }}' on {{ $labels.host }} has had fewer available replicas than desired for 15m, and no rollout is progressing."
+
+      - alert: KubeStatefulSetReplicasMismatch
+        expr: |
+          (
+            max by (app, deployment, environment, host, namespace, statefulset) (
+              kube_statefulset_replicas{job="kube-state"}
+            )
+            >
+            max by (app, deployment, environment, host, namespace, statefulset) (
+              kube_statefulset_status_replicas_ready{job="kube-state"}
+            )
+          )
+          and on (host, namespace, statefulset)
+          max by (host, namespace, statefulset) (
+            changes(kube_statefulset_status_replicas_updated{job="kube-state"}[10m])
+          ) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "StatefulSet below desired replicas: {{ $labels.namespace }}/{{ $labels.statefulset }} ({{ $labels.environment }})"
+          description: "StatefulSet '{{ $labels.namespace }}/{{ $labels.statefulset }}' on {{ $labels.host }} has had fewer ready replicas than desired for 15m, and no rollout is progressing."
