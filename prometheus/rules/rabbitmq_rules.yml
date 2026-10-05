@@ -13,13 +13,31 @@ groups:
           description: "RabbitMQ on {{ $labels.host }} has been unreachable for 2m."
 
       - alert: RabbitMQNoConsumers
-        expr: rabbitmq_queue_consumers == 0 and rabbitmq_queue_messages > 0
+        # Dead-letter queues have no consumer by design; RabbitMQDeadLettered
+        # covers them. Both rules carry the same DLQ name regex: dlq_x, x_dlq,
+        # x_dlq_y, x.dead-letter, x_deadletter_y (any of `._-`, any case).
+        expr: |
+          rabbitmq_queue_consumers{queue!~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} == 0
+            and rabbitmq_queue_messages{queue!~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} > 0
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "RabbitMQ queue '{{ $labels.queue }}' has messages but no consumers"
           description: "Queue '{{ $labels.queue }}' on {{ $labels.host }} has held messages with zero consumers for 5m."
+
+      - alert: RabbitMQDeadLettered
+        # New dead letters, not standing ones: fires while the DLQ holds more
+        # than it did 15m ago, so one batch of failures alerts once and a
+        # DLQ nobody has drained yet stays quiet.
+        expr: |
+          rabbitmq_queue_messages{queue=~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"}
+            > rabbitmq_queue_messages{queue=~"(?i)(.*[._-])?(dlq|dead[._-]?letter)([._-].*)?"} offset 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "New dead letters in RabbitMQ queue '{{ $labels.queue }}'"
+          description: "Dead-letter queue '{{ $labels.queue }}' on {{ $labels.host }} grew to {{ $value }} messages in the last 15m: messages are failing to be processed."
 
       - alert: RabbitMQQueueBacklog
         # Threshold generous; tighten per-queue in project overlays if needed.

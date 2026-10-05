@@ -68,6 +68,13 @@ Alerts: **`prometheus/rules/rabbitmq_rules.yml`**:
 
 - `RabbitMQDown` — node unreachable for 2m.
 - `RabbitMQNoConsumers` — queue has messages but zero consumers for 5m.
+  Dead-letter queues are skipped: no consumer is their normal state.
+- `RabbitMQDeadLettered` — a dead-letter queue holds more messages than 15m
+  ago. Fires once per batch of failures and resolves while the queue is still
+  undrained. A queue counts as a DLQ by name: `dlq` or `dead-letter` /
+  `deadletter` as a whole word separated by `.`, `_` or `-`, any case
+  (`dlq_x`, `x_dlq`, `x_dlq_y`, `x.dead-letter`). Name DLQs that way, or they
+  are alerted as ordinary queues.
 - `RabbitMQQueueBacklog` — >10k messages sitting for 15m (tighten per-project).
 - `RabbitMQDiskLow` — <5 GB free. RabbitMQ *blocks all publishers* when disk
   fills, so this is a real cliff.

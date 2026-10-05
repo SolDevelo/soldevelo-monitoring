@@ -1,0 +1,72 @@
+# Unit tests for the dead-letter split: RabbitMQNoConsumers skips DLQs (no
+# consumer is their normal state), RabbitMQDeadLettered alerts once on new
+# dead letters and stays quiet on a standing DLQ.
+#
+# Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
+rule_files:
+  - ../rules/rabbitmq_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A work queue with messages and no consumer still alerts; DLQs in each
+  # naming style do not.
+  - interval: 1m
+    name: RabbitMQNoConsumers ignores dead-letter queues
+    input_series:
+      - series: 'rabbitmq_queue_consumers{queue="scraper_target_queue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="scraper_target_queue",host="h1"}'
+        values: "3+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="dlq_classification_result_queue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="dlq_classification_result_queue",host="h1"}'
+        values: "18+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="scraper_target_dlq_queue",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="scraper_target_dlq_queue",host="h1"}'
+        values: "2+0x20"
+      - series: 'rabbitmq_queue_consumers{queue="orders.Dead-Letter",host="h1"}'
+        values: "0+0x20"
+      - series: 'rabbitmq_queue_messages{queue="orders.Dead-Letter",host="h1"}'
+        values: "1+0x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RabbitMQNoConsumers
+        exp_alerts:
+          - exp_labels:
+              alertname: RabbitMQNoConsumers
+              severity: warning
+              queue: scraper_target_queue
+              host: h1
+            exp_annotations:
+              summary: "RabbitMQ queue 'scraper_target_queue' has messages but no consumers"
+              description: "Queue 'scraper_target_queue' on h1 has held messages with zero consumers for 5m."
+
+  # Messages land in the DLQ at minute 30 and stay. Fires at once, resolves
+  # 15m later although nobody drained the queue.
+  - interval: 1m
+    name: RabbitMQDeadLettered fires on new dead letters, not standing ones
+    input_series:
+      - series: 'rabbitmq_queue_messages{queue="dlq_classification_result_queue",host="h1"}'
+        values: "18+0x29 25+0x60"
+      - series: 'rabbitmq_queue_messages{queue="scraper_target_queue",host="h1"}'
+        values: "0+0x29 500+0x60"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: RabbitMQDeadLettered
+        exp_alerts: []          # 18 standing dead letters: quiet
+      - eval_time: 31m
+        alertname: RabbitMQDeadLettered
+        exp_alerts:
+          - exp_labels:
+              alertname: RabbitMQDeadLettered
+              severity: warning
+              queue: dlq_classification_result_queue
+              host: h1
+            exp_annotations:
+              summary: "New dead letters in RabbitMQ queue 'dlq_classification_result_queue'"
+              description: "Dead-letter queue 'dlq_classification_result_queue' on h1 grew to 25 messages in the last 15m: messages are failing to be processed."
+      - eval_time: 50m
+        alertname: RabbitMQDeadLettered
+        exp_alerts: []          # still 25, but no longer new
