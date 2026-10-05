@@ -26,9 +26,10 @@ package's *Host overview* and *Containers* dashboards and their alerts
 (`InstanceDown`, `HighCPU`, `LowDiskSpace`, `ContainerAbsent`, …) are
 docker-shaped. On a cluster that ground is covered by kube-state-metrics
 (`kube_pod_status_ready`, `kube_pod_container_status_restarts_total`,
-`kube_deployment_status_replicas_available`) — queryable now, dashboards and
-rules for it are a roadmap item. `ServiceDown` / `ServiceAbsent` work as on
-docker; see *Gotchas* for how `ServiceAbsent` behaves across a rollout.
+`kube_deployment_status_replicas_available`). `KubeDeploymentReplicasMismatch`
+and `KubeStatefulSetReplicasMismatch` compare desired with ready replicas;
+dashboards for it are a roadmap item. `ServiceDown` / `ServiceAbsent` work as
+on docker; see *Gotchas* for how `ServiceAbsent` behaves across a rollout.
 
 ## Prerequisites
 
@@ -178,14 +179,11 @@ docker network as the host in both URLs:
 
 ## Gotchas
 
-- **`ServiceAbsent` after a rollout.** `instance` is the pod name, and a
-  Deployment mints new names on every rollout, so the replaced pod's
-  (`service`, `instance`) stops reporting: `ServiceAbsent` (warning) pends for
-  30m and clears 2h after the deploy. Silence deploy windows
-  ([`silences.md`](silences.md)) rather than loosening the rule. A stable
-  per-replica identity does not exist for Deployments; for a single-replica
-  workload you may set `instance` to a constant by adding a relabel rule in
-  `discovery.relabel "app"`.
+- **`ServiceAbsent` and rollouts.** `instance` is the pod name, and a
+  Deployment mints new names on every rollout. `ServiceAbsent` fires for a
+  vanished instance only while the service runs fewer instances than its 2h
+  median, so a rollout that replaces every pod stays quiet; a pod lost and not
+  replaced fires under its old name and resolves once a replacement is up.
 - **Metrics port also declared as a `containerPort`.** Fine. Every declared
   port produces one discovered target, but after the relabel they all carry
   the same address and labels and the scraper keeps one; `count(up{job="app",

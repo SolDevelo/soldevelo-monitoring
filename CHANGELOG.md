@@ -6,6 +6,18 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`KubeDeploymentReplicasMismatch`, `KubeStatefulSetReplicasMismatch`**: a
+  workload has fewer ready replicas than desired for 15m and no rollout is
+  progressing. From kube-state-metrics, so silent off Kubernetes.
+
+### Fixed
+- **`ServiceAbsent` no longer fires after a Kubernetes rollout.** `instance`
+  is the pod name there, so every rollout left the replaced pods "absent" for
+  2h. A vanished instance now fires only while its service runs fewer
+  instances than its 2h median. Docker still names the lost replica. A
+  deliberate scale-down now clears after about 1h instead of 2h.
+
 ## [0.9.1] — 2026-10-05
 
 ### Added

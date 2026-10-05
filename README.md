@@ -80,7 +80,11 @@ the same things across projects.
 - **Service / push-model absence**: `ServiceDown` (scraped, reports down),
   `ServiceAbsent` and `ContainerAbsent` (was reporting within 2h, no longer
   is — under push, a dead target simply stops arriving, so `== 0` never fires),
-  `AgentAbsent` (overlay, see below).
+  `AgentAbsent` (overlay, see below). `ServiceAbsent` names the missing
+  instance and only fires while nothing has replaced it.
+- **Kubernetes**: `KubeDeploymentReplicasMismatch`,
+  `KubeStatefulSetReplicasMismatch` (fewer ready replicas than desired, no
+  rollout in progress).
 - **Container**: `ContainerHighMemoryVsLimit`, `ContainerOOMKilled`,
   `ContainerRestartLoop`.
 - **HTTP probes**: `ProbeFailing`, `AppDown`, `PublicUrlUnreachable`,
