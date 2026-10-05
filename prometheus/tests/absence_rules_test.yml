@@ -64,8 +64,120 @@ tests:
               service: reports
               instance: reports
             exp_annotations:
-              summary: "Service stopped reporting: reports (prod)"
-              description: "'reports' on h1 was being scraped within the last 2h and no longer is — removed, renamed, or its container is gone. Resolves on its own 2h after a deliberate removal."
+              summary: "Service instance stopped reporting: reports/reports (prod)"
+              description: "'reports' of 'reports' on h1 was being scraped within the last 2h and no longer is, and nothing replaced it: the service runs fewer instances than its 2h median."
+
+  # Docker: compose names are stable, so a lost replica is named in the alert.
+  - interval: 1m
+    name: ServiceAbsent names the one replica that is gone while the others run
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper"}'
+        values: "1+0x120"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-2"}'
+        values: "1+0x60 _x60"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-3"}'
+        values: "1+0x120"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ServiceAbsent
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceAbsent
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              service: scraper
+              instance: scraper-2
+            exp_annotations:
+              summary: "Service instance stopped reporting: scraper/scraper-2 (prod)"
+              description: "'scraper-2' of 'scraper' on h1 was being scraped within the last 2h and no longer is, and nothing replaced it: the service runs fewer instances than its 2h median."
+
+  # Kubernetes: a rollout replaces every pod name. The old names are absent,
+  # but the count is back to normal, so nothing is missing. The overlap (6
+  # pods for 2m) must not raise the baseline either.
+  - interval: 1m
+    name: ServiceAbsent stays quiet across a rollout that renames every replica
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-a"}'
+        values: "1+0x60 _x60"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-b"}'
+        values: "1+0x60 _x60"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-c"}'
+        values: "1+0x60 _x60"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7677-d"}'
+        values: "_x59 1+0x61"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7677-e"}'
+        values: "_x59 1+0x61"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7677-f"}'
+        values: "_x59 1+0x61"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ServiceAbsent
+        exp_alerts: []
+
+  # Kubernetes: a pod lost and not replaced fires under its old name, and
+  # resolves once a replacement brings the count back.
+  - interval: 1m
+    name: ServiceAbsent fires for a pod that is not replaced and resolves when one is
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-a"}'
+        values: "1+0x120"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-b"}'
+        values: "1+0x120"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-c"}'
+        values: "1+0x60 _x60"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-7fc4-d"}'
+        values: "_x110 1+0x10"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ServiceAbsent
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceAbsent
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              service: scraper
+              instance: scraper-7fc4-c
+            exp_annotations:
+              summary: "Service instance stopped reporting: scraper/scraper-7fc4-c (prod)"
+              description: "'scraper-7fc4-c' of 'scraper' on h1 was being scraped within the last 2h and no longer is, and nothing replaced it: the service runs fewer instances than its 2h median."
+      - eval_time: 115m
+        alertname: ServiceAbsent
+        exp_alerts: []
+
+  # The cost of inferring the inventory: a deliberate scale-down fires until
+  # the median catches up, about 1h after the instance went.
+  - interval: 1m
+    name: ServiceAbsent resolves about 1h after a deliberate scale-down
+    input_series:
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper"}'
+        values: "1+0x180"
+      - series: 'up{job="app",app="acme",deployment="d1",environment="prod",host="h1",service="scraper",instance="scraper-2"}'
+        values: "1+0x60 _x120"
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: ServiceAbsent
+        exp_alerts:
+          - exp_labels:
+              alertname: ServiceAbsent
+              severity: warning
+              app: acme
+              deployment: d1
+              environment: prod
+              host: h1
+              service: scraper
+              instance: scraper-2
+            exp_annotations:
+              summary: "Service instance stopped reporting: scraper/scraper-2 (prod)"
+              description: "'scraper-2' of 'scraper' on h1 was being scraped within the last 2h and no longer is, and nothing replaced it: the service runs fewer instances than its 2h median."
+      - eval_time: 130m
+        alertname: ServiceAbsent
+        exp_alerts: []
 
   # Regression: the agent's label set changed under a running service (0.6.0
   # added `environment`). Cancelling on the full aggregation set left every

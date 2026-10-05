@@ -29,30 +29,54 @@ groups:
           description: "Prometheus has been unable to scrape '{{ $labels.service }}' on {{ $labels.host }} for 10m. The container is up — the metrics endpoint is not answering."
 
       - alert: ServiceAbsent
-        # Inventory inferred from history: anything scraped in the last 2h that
-        # isn't being scraped now. Self-maintaining, no service list to keep in
-        # sync — at the cost of firing for 2h after a deliberate removal, and
-        # never firing for a service that has never once come up.
+        # Inventory inferred from history: an instance scraped in the last 2h
+        # that isn't being scraped now, while its service runs fewer instances
+        # than its 2h median. Self-maintaining, no service list to keep in sync
+        # — at the cost of firing for up to 1h after a deliberate scale-down
+        # (2h after removing a whole service), and never firing for a service
+        # that has never once come up.
         #
         # Aggregate away every label that churns across a container's lifecycle
         # (id, image, container_label_*). A label that changes on redeploy makes
         # the old series unreachable forever and pins this alert firing for the
-        # whole window. `service` and `instance` are stable by convention.
+        # whole window. `service` is stable by convention; `instance` is on
+        # docker (compose names) but not on Kubernetes, where it is the pod name.
+        #
+        # The count gate is what makes a replaced instance quiet: a rollout
+        # mints new pod names, but the count is back to normal. The median, not
+        # the max, so a surge pod during a rollout doesn't raise the baseline.
+        # `or 0 * baseline` reads "no instances left" as 0, not as no series.
         #
         # `unless on (host, service, instance)`: cancel on identity only, so a
         # label-set change on the agent (0.6.0 added `environment`) cannot
         # orphan the pre-cutover series. See ContainerAbsent.
         expr: |
-          max by (app, deployment, environment, host, service, instance) (
-            max_over_time(up{job="app"}[2h])
+          (
+            max by (app, deployment, environment, host, service, instance) (
+              max_over_time(up{job="app"}[2h])
+            )
+            unless on (host, service, instance)
+            max by (app, deployment, environment, host, service, instance) (
+              up{job="app"}
+            )
           )
-          unless on (host, service, instance)
-          max by (app, deployment, environment, host, service, instance) (
-            up{job="app"}
+          and on (host, service)
+          (
+            quantile_over_time(0.5,
+              count by (app, deployment, environment, host, service) (up{job="app"})[2h:1m]
+            )
+            >
+            (
+              count by (app, deployment, environment, host, service) (up{job="app"})
+              or
+              0 * quantile_over_time(0.5,
+                count by (app, deployment, environment, host, service) (up{job="app"})[2h:1m]
+              )
+            )
           )
         for: 30m
         labels:
           severity: warning
         annotations:
-          summary: "Service stopped reporting: {{ $labels.service }} ({{ $labels.environment }})"
-          description: "'{{ $labels.service }}' on {{ $labels.host }} was being scraped within the last 2h and no longer is — removed, renamed, or its container is gone. Resolves on its own 2h after a deliberate removal."
+          summary: "Service instance stopped reporting: {{ $labels.service }}/{{ $labels.instance }} ({{ $labels.environment }})"
+          description: "'{{ $labels.instance }}' of '{{ $labels.service }}' on {{ $labels.host }} was being scraped within the last 2h and no longer is, and nothing replaced it: the service runs fewer instances than its 2h median."
