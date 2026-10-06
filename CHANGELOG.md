@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-06
+
 ### Added
 - **Per-deployment ingest tokens**: Caddy accepts `INGEST_TOKEN` and any
   `INGEST_TOKEN_<NAME>` from the stack `.env`, so each deployment on a shared
@@ -797,7 +799,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.0...v0.9.1
