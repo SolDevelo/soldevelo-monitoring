@@ -28,6 +28,10 @@ route:
     - matchers:
         - environment="dev"
       receiver: "null"
+    # Per-deployment routes from alertmanager/overlay/routes.yml (spliced in by
+    # bin/render-configs.sh). After the dev mute, before the environment
+    # routes, so a deployment with its own channel takes all its non-dev alerts.
+    # @overlay-routes
     # prod, uat and staging each get their own channel. These must precede the
     # severity route below, or their critical alerts would match that one and
     # land in the default channel. Each falls back to the default webhook and
@@ -120,8 +124,9 @@ receivers:
     slack_configs:
       - channel: "${SLACK_CHANNEL}"
         send_resolved: true
-        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
-        text: |
+        # Anchored for reuse by overlay receivers (*slack_title, *slack_text).
+        title: &slack_title '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} x {{ .Alerts.Firing | len }}{{ end }}] {{ if .CommonLabels.deployment }}{{ .CommonLabels.deployment }} · {{ end }}{{ .CommonLabels.alertname }}'
+        text: &slack_text |
           {{ range .Alerts -}}
           *{{ .Labels.severity | toUpper }}*{{ if .Labels.deployment }} [{{ .Labels.deployment }}]{{ end }} — {{ .Annotations.summary }}
           {{ .Annotations.description }}
@@ -163,3 +168,5 @@ receivers:
           {{ .Annotations.description }}
           {{ if .Annotations.runbook_url }}<{{ .Annotations.runbook_url }}|runbook> · {{ end }}<${MONITORING_SITE}|open grafana>
           {{ end }}
+  # Receivers from alertmanager/overlay/receivers.yml.
+  # @overlay-receivers

@@ -10,6 +10,12 @@ follows [semver](https://semver.org/).
 - **`KubeDeploymentReplicasMismatch`, `KubeStatefulSetReplicasMismatch`**: a
   workload has fewer ready replicas than desired for 15m and no rollout is
   progressing. From kube-state-metrics, so silent off Kubernetes.
+- **Alertmanager overlay**: optional `alertmanager/overlay/routes.yml` and
+  `receivers.yml`, spliced into `alertmanager.yml` by `bin/render-configs.sh`.
+  A deployment on a shared stack can route its alerts to its own Slack
+  channels; overlay routes run after the dev mute and before the environment
+  routes. The default Slack title and text are YAML anchors (`*slack_title`,
+  `*slack_text`) for reuse. See `alertmanager/overlay/README.md`.
 
 ### Fixed
 - **`ServiceAbsent` no longer fires after a Kubernetes rollout.** `instance`
