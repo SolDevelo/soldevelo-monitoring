@@ -59,11 +59,28 @@ else
 fi
 export CADDY_SITE
 
-# Placeholders from .env.example. Warn only: validate.sh renders the example on
-# purpose, but on a monitoring host these are the public repo's defaults.
-if [[ "${INGEST_TOKEN:-}" == changeme* ]]; then
-  echo "WARNING: INGEST_TOKEN is the placeholder — Caddy will accept the public default as the bearer token (openssl rand -hex 32)" >&2
+# Ingest tokens: INGEST_TOKEN plus any INGEST_TOKEN_<NAME> (one per deployment,
+# revocable on its own). One `not header` line each; lines in a matcher are
+# AND-ed, so Caddy rejects only a request matching none. Agent-only .env files
+# have no MONITORING_SITE and need none.
+INGEST_AUTH_MATCHERS=""
+for v in $(grep -oE '^INGEST_TOKEN(_[A-Z0-9_]+)?=' "${ENV_FILE}" | tr -d = | sort -u); do
+  t="${!v}"
+  [[ -z "${t}" ]] && continue
+  if [[ ! "${t}" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
+    echo "ERROR: ${v} has characters outside [A-Za-z0-9._~+/=-]" >&2; exit 1
+  fi
+  if [[ "${t}" == changeme* ]]; then
+    # Warn only: validate.sh renders .env.example on purpose.
+    echo "WARNING: ${v} is the placeholder — Caddy will accept the public default as the bearer token (openssl rand -hex 32)" >&2
+  fi
+  INGEST_AUTH_MATCHERS+="            not header Authorization \"Bearer ${t}\""$'\n'
+done
+if [[ -z "${INGEST_AUTH_MATCHERS}" && -n "${MONITORING_SITE:-}" ]]; then
+  echo "ERROR: no INGEST_TOKEN or INGEST_TOKEN_<NAME> set" >&2; exit 1
 fi
+INGEST_AUTH_MATCHERS="${INGEST_AUTH_MATCHERS%$'\n'}"
+export INGEST_AUTH_MATCHERS
 if [[ "${GRAFANA_ADMIN_PASSWORD:-}" == "changeme" ]]; then
   echo "WARNING: GRAFANA_ADMIN_PASSWORD is the placeholder 'changeme'" >&2
 fi
@@ -75,7 +92,7 @@ var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
   | sed 's/^/$/' \
   | tr '\n' ' ')
 var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $SLACK_WEBHOOK_URL_UAT $SLACK_CHANNEL_UAT'
-var_list+=' $SLACK_WEBHOOK_URL_STAGING $SLACK_CHANNEL_STAGING $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE'
+var_list+=' $SLACK_WEBHOOK_URL_STAGING $SLACK_CHANNEL_STAGING $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE $INGEST_AUTH_MATCHERS'
 
 # Splice alertmanager/overlay/{routes,receivers}.yml in at their `# @overlay-*`
 # marker, indented to the marker. Missing fragments leave the marker a comment.

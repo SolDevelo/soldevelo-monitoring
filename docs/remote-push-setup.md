@@ -35,6 +35,17 @@ The pieces ship in the package; you enable them with config + a recreate.
    ```
    Keep it secret; anyone with it can write metrics/logs into your stack.
 
+   On a stack shared by several deployments, give each its own token instead —
+   `INGEST_TOKEN_<NAME>` (uppercase, digits, `_`), any number of them:
+   ```env
+   INGEST_TOKEN=
+   INGEST_TOKEN_CORE=<secret for core's agents>
+   INGEST_TOKEN_GAMBIA=<secret for gambia's agents>
+   ```
+   Caddy accepts any of them. The agent side does not change: each agent still
+   reads `INGEST_TOKEN`, set to its deployment's value. A token does not limit
+   which labels its agent may push — it is for revocation, not isolation.
+
 2. **Render and recreate** the affected services:
    ```bash
    bin/render-configs.sh
@@ -81,11 +92,13 @@ distinct `deployment` value per remote so its data stays separable.
 
 ## Security notes
 
-- **One shared token today.** For multiple remote deployments, prefer a token
-  per deployment so one can be revoked without disrupting the others — add a
-  matcher per token in `Caddyfile.template`. (Single token is fine to start.)
-- **Rotation** — change `INGEST_TOKEN`, re-render, recreate `caddy`, and update
-  the agent. No Prometheus/Loki restart needed for a token change.
+- **A token per deployment** (`INGEST_TOKEN_<NAME>`) lets one be revoked
+  without disrupting the others, and keeps a leaked config repo from opening
+  the stack to every deployment.
+- **Rotation without a gap** — add the new value as another
+  `INGEST_TOKEN_<NAME>`, re-render, recreate `caddy`, move the agent to it,
+  then delete the old one and recreate `caddy` again. No Prometheus/Loki
+  restart needed for a token change.
 - **Loki stays single-tenant** (`auth_enabled: false`); the `deployment` label
   provides logical separation and Caddy provides the auth. Hard multi-tenant
   isolation (per-tenant `X-Scope-OrgID`) is a later step if needed.
@@ -96,12 +109,10 @@ distinct `deployment` value per remote so its data stays separable.
 
 - **401 from a correct-looking token** — the header must be exactly
   `Authorization: Bearer <token>`; a trailing newline or missing `Bearer ` word
-  fails the match. Confirm `INGEST_TOKEN` rendered into `caddy/Caddyfile` (it's
+  fails the match. Confirm the token rendered into `caddy/Caddyfile` (it's
   gitignored) matches what the agent sends.
-- **404 on the ingest path** — you rendered before adding `INGEST_TOKEN` to
-  `.env`, so `${INGEST_TOKEN}` stayed literal and the site block may not have
-  rendered as expected; or the path prefix is wrong (note the doubled segment
-  for Loki: `/ingest/loki/loki/api/v1/push`).
+- **404 on the ingest path** — the path prefix is wrong (note the doubled
+  segment for Loki: `/ingest/loki/loki/api/v1/push`).
 - **Metrics rejected as "out of order" / "too old"** — if the agent batches and
   back-fills, add `--storage.tsdb.out-of-order-time-window=5m` to the
   prometheus command. Not enabled by default; only add it if you see rejects.

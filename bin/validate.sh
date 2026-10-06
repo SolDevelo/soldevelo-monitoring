@@ -23,6 +23,7 @@ set -a; # shellcheck disable=SC1090
 source "${ENV_FILE}"; set +a
 PROM_IMG="prom/prometheus:${PROMETHEUS_VERSION:?set PROMETHEUS_VERSION in ${ENV_FILE}}"
 AM_IMG="prom/alertmanager:${ALERTMANAGER_VERSION:?set ALERTMANAGER_VERSION in ${ENV_FILE}}"
+CADDY_IMG="caddy:${CADDY_VERSION:?set CADDY_VERSION in ${ENV_FILE}}"
 # Kubernetes manifest linter; pinned here, not in .env (nothing deploys it).
 KUBECONFORM_IMG="ghcr.io/yannh/kubeconform:v0.6.7"
 KUBECONFORM_K8S_VERSION="1.31.0"
@@ -93,6 +94,12 @@ if docker run --rm \
      -v "${REPO_ROOT}/prometheus/rules_meta:/etc/prometheus/rules:ro" \
      --entrypoint promtool "${PROM_IMG}" check config /etc/prometheus/prometheus.yml; then
   ok "prometheus-meta.yml"; else fail "promtool check config (meta)"; fi
+
+step "caddy validate"
+# The ingest matchers are generated; offline, so a TLS site is not provisioned.
+if docker run --rm --network none -v "${REPO_ROOT}/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" "${CADDY_IMG}" \
+     caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+  ok "Caddyfile"; else fail "caddy validate"; fi
 
 step "amtool check-config"
 if docker run --rm -v "${REPO_ROOT}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
