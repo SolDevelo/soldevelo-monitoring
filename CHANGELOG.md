@@ -6,6 +6,14 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Per-deployment ingest tokens**: Caddy accepts `INGEST_TOKEN` and any
+  `INGEST_TOKEN_<NAME>` from the stack `.env`, so each deployment on a shared
+  stack can have its own token and be revoked alone. `INGEST_TOKEN` may be
+  empty once named tokens exist; agents are unchanged. Existing `.env` files
+  keep working. See `docs/remote-push-setup.md`.
+- `bin/validate.sh` runs `caddy validate` on the rendered Caddyfile.
+
 ## [0.11.0] — 2026-10-06
 
 ### Added

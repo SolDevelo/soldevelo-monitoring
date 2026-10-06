@@ -20,14 +20,19 @@
 ${CADDY_SITE} {
     encode gzip
 
-    # Bearer-gated remote push; handle_path strips the prefix. docs/remote-push-setup.md
+    # Bearer-gated remote push; any INGEST_TOKEN* is accepted. handle_path strips
+    # the prefix. docs/remote-push-setup.md
     handle_path /ingest/prometheus/* {
-        @noauth not header Authorization "Bearer ${INGEST_TOKEN}"
+        @noauth {
+${INGEST_AUTH_MATCHERS}
+        }
         respond @noauth "Unauthorized" 401
         reverse_proxy prometheus:9090
     }
     handle_path /ingest/loki/* {
-        @noauth not header Authorization "Bearer ${INGEST_TOKEN}"
+        @noauth {
+${INGEST_AUTH_MATCHERS}
+        }
         respond @noauth "Unauthorized" 401
         reverse_proxy loki:3100
     }
