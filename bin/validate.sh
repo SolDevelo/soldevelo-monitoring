@@ -48,7 +48,8 @@ restore_rendered() {
   local f
   while IFS= read -r -d '' f; do
     f="${f#${RENDER_BACKUP}/}"
-    mv -f "${RENDER_BACKUP}/${f}" "${REPO_ROOT}/${f}"
+    # In place, not mv: containers bind-mount these files singly and keep the old inode.
+    cat "${RENDER_BACKUP}/${f}" > "${REPO_ROOT}/${f}"
   done < <(find "${RENDER_BACKUP}" -type f -print0)
   [[ ${#RENDER_NEW[@]} -gt 0 ]] && rm -f "${RENDER_NEW[@]}"
   rm -rf "${RENDER_BACKUP}" "${EMPTY_TARGETS}"
