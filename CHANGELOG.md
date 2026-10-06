@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-10-06
+
 ### Fixed
 - `bin/validate.sh` restores the rendered configs in place instead of with
   `mv`. Since the containers bind-mount `alertmanager.yml`, `prometheus.yml`,
@@ -807,7 +809,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.9.1...v0.10.0
