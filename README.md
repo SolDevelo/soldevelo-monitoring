@@ -339,7 +339,8 @@ docker compose --env-file .env -f stack/docker-compose.yml up -d --force-recreat
   firewall it on a host with a public interface.
 - **Secrets and per-deployment files** — `.env`,
   `prometheus/targets/**/*.json`, `prometheus/rules/overlay/*.yml` and
-  `grafana/dashboards/overlay/*.json` are gitignored. Keep the master copies
+  `grafana/dashboards/overlay/*.json`, `alertmanager/overlay/*.yml` are
+  gitignored. Keep the master copies
   in the deployment's own repo; don't commit them here.
 
 ## Conventions

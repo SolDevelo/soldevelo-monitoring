@@ -77,10 +77,25 @@ var_list=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${ENV_FILE}" \
 var_list+=' $SLACK_WEBHOOK_URL_PROD $SLACK_CHANNEL_PROD $SLACK_WEBHOOK_URL_UAT $SLACK_CHANNEL_UAT'
 var_list+=' $SLACK_WEBHOOK_URL_STAGING $SLACK_CHANNEL_STAGING $WATCHDOG_RECEIVER $HEARTBEAT_URL $CADDY_SITE'
 
+# Splice alertmanager/overlay/{routes,receivers}.yml in at their `# @overlay-*`
+# marker, indented to the marker. Missing fragments leave the marker a comment.
+splice_overlay() { # <template>
+  local dir; dir="$(dirname "$1")/overlay"
+  awk -v dir="${dir}" '
+    match($0, /^ *# @overlay-[a-z]+$/) {
+      print
+      ind = substr($0, 1, index($0, "#") - 1)
+      f = dir "/" substr($0, index($0, "@overlay-") + 9) ".yml"
+      while ((getline line < f) > 0) print (line == "" ? "" : ind line)
+      close(f); next
+    }
+    { print }' "$1"
+}
+
 found_any=0
 while IFS= read -r -d '' template; do
   output="${template%.template}"
-  envsubst "${var_list}" < "${template}" > "${output}"
+  splice_overlay "${template}" | envsubst "${var_list}" > "${output}"
   echo "rendered: ${output#${REPO_ROOT}/}"
   found_any=1
 done < <(find "${REPO_ROOT}" -type f -name '*.template' -print0)

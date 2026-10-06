@@ -13,6 +13,7 @@
 /prometheus/targets/blackbox/*.json
 /prometheus/rules/overlay/*.yml
 /grafana/dashboards/overlay/*.json
+/alertmanager/overlay/*.yml
 !**/.gitkeep
 
 # Per-deployment identity of the Kubernetes agent (copied from its .example)
