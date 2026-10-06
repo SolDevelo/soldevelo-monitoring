@@ -6,6 +6,14 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `bin/validate.sh` restores the rendered configs in place instead of with
+  `mv`. Since the containers bind-mount `alertmanager.yml`, `prometheus.yml`,
+  `Caddyfile` and the others as single files, the new inode was invisible to
+  them: a `/-/reload` after render + validate reloaded the previous config.
+  Recreate a running container once after upgrading to pick up any change made
+  that way.
+
 ## [0.12.0] — 2026-10-06
 
 ### Added
