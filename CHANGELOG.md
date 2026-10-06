@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`PostgreSQLReplicationSlotInactive`** (warning, 30m) and
+  **`PostgreSQLReplicationSlotLost`** (critical): a logical replication slot
+  with no consumer, and one invalidated past `max_slot_wal_keep_size`. The
+  latter left the Gambia UAT reporting CDC stuck unnoticed.
+
 ## [0.10.0] — 2026-10-06
 
 ### Added

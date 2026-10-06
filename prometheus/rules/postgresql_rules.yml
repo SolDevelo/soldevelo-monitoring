@@ -55,3 +55,25 @@ groups:
         annotations:
           summary: "PostgreSQL replica lag > 15m on {{ $labels.host }}"
           description: "Replica {{ $labels.host }} is {{ $value | humanizeDuration }} behind the primary."
+
+      - alert: PostgreSQLReplicationSlotInactive
+        # Nothing consumes the slot, so WAL piles up until max_slot_wal_keep_size
+        # invalidates it. Early warning for PostgreSQLReplicationSlotLost.
+        expr: pg_replication_slots_slot_is_active == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Replication slot '{{ $labels.slot_name }}' inactive on {{ $labels.host }}"
+          description: "No consumer has been attached to slot '{{ $labels.slot_name }}' for 30m; WAL is accumulating. Restart its consumer (e.g. the Debezium connector) before the slot is invalidated."
+
+      - alert: PostgreSQLReplicationSlotLost
+        # The WAL the consumer needs is gone; it cannot resume. Recovery is
+        # drop the slot + re-snapshot (reporting stack: `make recover-slot`).
+        expr: pg_replication_slots_wal_status{wal_status="lost"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Replication slot '{{ $labels.slot_name }}' invalidated on {{ $labels.host }}"
+          description: "Slot '{{ $labels.slot_name }}' fell behind max_slot_wal_keep_size and its WAL was removed (wal_status=lost). Its consumer cannot resume: drop the slot and re-snapshot."

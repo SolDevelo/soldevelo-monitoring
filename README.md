@@ -96,7 +96,8 @@ the same things across projects.
   `RabbitMQQueueBacklog`, `RabbitMQDiskLow`.
 - **PostgreSQL**: `PostgreSQLDown`, `PostgreSQLTooManyConnections`,
   `PostgreSQLLowCacheHitRatio`, `PostgreSQLDeadlocks`,
-  `PostgreSQLReplicationLag`.
+  `PostgreSQLReplicationLag`, `PostgreSQLReplicationSlotInactive`,
+  `PostgreSQLReplicationSlotLost`.
 - **Jenkins**: `JenkinsDown`, `JenkinsHealthCheckFailed`,
   `JenkinsQueueBacklog`, `JenkinsExecutorSaturated`.
 - **Logs**: `ErrorLogsSpike`, `JvmOutOfMemoryError`, `JvmGCOverheadLimit`,

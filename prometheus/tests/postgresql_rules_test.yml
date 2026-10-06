@@ -1,0 +1,48 @@
+# Unit tests for the replication-slot alerts.
+#
+# Run: promtool test rules prometheus/tests/*.yml   (wired into bin/validate.sh)
+rule_files:
+  - ../rules/postgresql_rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: inactive slot warns after 30m, active slot stays quiet
+    input_series:
+      - series: 'pg_replication_slots_slot_is_active{slot_name="debezium_reporting",host="h1"}'
+        values: "1x5 0x40"
+      - series: 'pg_replication_slots_slot_is_active{slot_name="other",host="h1"}'
+        values: "1x45"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: PostgreSQLReplicationSlotInactive
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: PostgreSQLReplicationSlotInactive
+        exp_alerts:
+          - exp_labels: {severity: warning, slot_name: debezium_reporting, host: h1}
+            exp_annotations:
+              summary: "Replication slot 'debezium_reporting' inactive on h1"
+              description: "No consumer has been attached to slot 'debezium_reporting' for 30m; WAL is accumulating. Restart its consumer (e.g. the Debezium connector) before the slot is invalidated."
+
+  # The exporter emits one series per slot labelled with its current
+  # wal_status; on recovery the lost series goes stale.
+  - interval: 1m
+    name: lost slot is critical and clears once the slot is recreated
+    input_series:
+      - series: 'pg_replication_slots_wal_status{slot_name="debezium_reporting",wal_status="lost",host="h1"}'
+        values: "1x10"
+      - series: 'pg_replication_slots_wal_status{slot_name="debezium_reporting",wal_status="reserved",host="h1"}'
+        values: "_x11 1x10"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PostgreSQLReplicationSlotLost
+        exp_alerts:
+          - exp_labels: {severity: critical, slot_name: debezium_reporting, wal_status: lost, host: h1}
+            exp_annotations:
+              summary: "Replication slot 'debezium_reporting' invalidated on h1"
+              description: "Slot 'debezium_reporting' fell behind max_slot_wal_keep_size and its WAL was removed (wal_status=lost). Its consumer cannot resume: drop the slot and re-snapshot."
+      - eval_time: 20m
+        alertname: PostgreSQLReplicationSlotLost
+        exp_alerts: []

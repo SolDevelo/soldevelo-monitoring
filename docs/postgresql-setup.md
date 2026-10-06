@@ -65,6 +65,11 @@ Alerts: **`prometheus/rules/postgresql_rules.yml`**:
 - `PostgreSQLDeadlocks` — deadlock rate for 5m (sustained ⇒ lock-ordering bug).
 - `PostgreSQLReplicationLag` — replica >15m behind primary (needs the
   replication collector, exporter pointed at the primary).
+- `PostgreSQLReplicationSlotInactive` — a replication slot has had no consumer
+  for 30m; WAL accumulates until the slot is invalidated (warning).
+- `PostgreSQLReplicationSlotLost` — a slot fell past `max_slot_wal_keep_size`
+  (`wal_status=lost`); its consumer (e.g. Debezium) cannot resume until the
+  slot is dropped and re-snapshotted (critical).
 
 ## Multiple databases
 
