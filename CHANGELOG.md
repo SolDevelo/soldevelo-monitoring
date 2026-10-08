@@ -6,6 +6,12 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Blackbox v0.28.0 → v0.29.0 and Caddy 2.11.4 → 2.11.7, from a fresh InfraScan
+  pass: Blackbox drops its last 2 CRITICAL (19 → 3 HIGH), Caddy 21 → 9 HIGH.
+  Caddy 2.11.6 caps request headers at 16 KiB and aborts a body read or write
+  that stalls for 1 minute; ingest pushes and Grafana stay well inside both.
+
 ## [0.12.1] — 2026-10-06
 
 ### Fixed
