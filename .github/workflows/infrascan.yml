@@ -32,6 +32,9 @@ jobs:
         uses: soldevelo/infrascan@v1
         with:
           scanner: comprehensive
+          # Pins live in .env.example, which the action's changed-file filter
+          # does not match, so a pin-only PR would skip the scan.
+          skip-if-no-match: false
           format: html
           out: infrascan-report.html
 
