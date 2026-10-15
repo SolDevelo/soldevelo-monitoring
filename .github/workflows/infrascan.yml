@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Catch CVEs published against unchanged pins.
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
