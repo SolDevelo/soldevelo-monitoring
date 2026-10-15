@@ -51,7 +51,7 @@ the same things across projects.
   `business-metrics.md`, `dead-man-switch.md` (external heartbeat),
   `silences.md` (deploy windows), `releasing.md` (cutting a version).
 
-### Dashboards (ten, all provisioned-as-code)
+### Dashboards (eleven, all provisioned-as-code)
 
 - **SolDevelo Monitoring** (home) — alert counts, dashboard list, quick links.
 - **Host overview** — CPU, memory, disk, per-NIC network, load.
@@ -72,6 +72,15 @@ the same things across projects.
   build success/failure rates.
 - **Active alerts** — table of currently firing and pending alerts, severity
   colour-coded, with stat counts up top.
+- **Service availability** — plain summary of one deployment for
+  non-technical readers: up/down, uptime, alarms. Grafana's external
+  (no-login) share does not support template variables, so set
+  `STAKEHOLDER_DEPLOYMENTS` in `.env`: `bin/render-configs.sh` then writes one
+  copy per deployment, deployment fixed and no variables, into the
+  **Shared externally** folder. Share those copies (Share → Share externally),
+  never the template. They are rebuilt on every render; the share link is
+  kept by uid (`sdm-stakeholder-<deployment>`). Dropping a deployment from the
+  list deletes its copy and its share.
 
 ### Pre-baked alerts (in Slack)
 

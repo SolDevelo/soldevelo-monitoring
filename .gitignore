@@ -7,6 +7,9 @@
 /alertmanager/alertmanager.yml
 /caddy/Caddyfile
 
+# Rendered per-deployment shared dashboards (STAKEHOLDER_DEPLOYMENTS)
+/grafana/dashboards-shared/*.json
+
 # Per-project overlay artifacts — committed in the project's own overlay, not
 # in the base package. The dirs ship (via .gitkeep) as documented drop-zones;
 # their contents stay out of the base.

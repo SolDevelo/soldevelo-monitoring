@@ -121,6 +121,28 @@ if [[ "${found_any}" -eq 0 ]]; then
   echo "no *.template files found under ${REPO_ROOT}"
 fi
 
+# Per-deployment copies of the Service availability dashboard for external
+# (no-login) sharing, which does not support template variables.
+shared_dir="${REPO_ROOT}/grafana/dashboards-shared"
+mkdir -p "${shared_dir}"
+rm -f "${shared_dir}"/*.json
+IFS=',' read -r -a stakeholder_entries <<<"${STAKEHOLDER_DEPLOYMENTS:-}"
+for entry in "${stakeholder_entries[@]}"; do
+  dep="${entry%%:*}"; dep="${dep// /}"
+  [[ -z "${dep}" ]] && continue
+  if [[ ! "${dep}" =~ ^[a-z0-9_-]+$ ]]; then
+    echo "ERROR: STAKEHOLDER_DEPLOYMENTS: bad deployment '${dep}'" >&2; exit 1
+  fi
+  command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not installed (needed by STAKEHOLDER_DEPLOYMENTS)" >&2; exit 1; }
+  name="${dep}"; [[ "${entry}" == *:* ]] && name="${entry#*:}"
+  sed -e "s/\\\$deployment/${dep}/g" -e 's/\$environment/.*/g' \
+    "${REPO_ROOT}/grafana/dashboards/stakeholder.json" \
+    | jq --arg uid "sdm-stakeholder-${dep}" --arg title "Service availability — ${name}" \
+      '.uid = $uid | .title = $title | .templating.list = [] | .tags += ["shared"]' \
+    > "${shared_dir}/stakeholder-${dep}.json"
+  echo "rendered: grafana/dashboards-shared/stakeholder-${dep}.json"
+done
+
 # Ensure config directories that get bind-mounted into containers are
 # traversable and readable by container processes. Idempotent; fixes the
 # common case where git clone under a restrictive umask leaves dirs at 750

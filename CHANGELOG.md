@@ -6,6 +6,18 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `STAKEHOLDER_DEPLOYMENTS` (`.env`): `bin/render-configs.sh` writes one copy
+  of the *Service availability* dashboard per listed deployment, with the
+  deployment fixed and no template variables, into a **Shared externally**
+  folder (`grafana/dashboards-shared/`, gitignored). Grafana's external
+  (no-login) share does not support template variables, so the template
+  rendered empty when shared. Each entry is `deployment` or
+  `deployment:Display name`; needs `jq` when set.
+
+### Upgrade notes
+- Needs `up -d --force-recreate grafana` for the new mount and provider.
+
 ## [0.13.0] — 2026-10-15
 
 ### Added
