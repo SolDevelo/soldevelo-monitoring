@@ -44,6 +44,8 @@ EMPTY_TARGETS="$(mktemp -d)"
 # configs, armed for the next force-recreate. Restore whatever was there.
 RENDER_BACKUP="$(mktemp -d)"
 RENDER_NEW=()
+SHARED_BACKUP="$(mktemp -d)"
+cp -p "${REPO_ROOT}"/grafana/dashboards-shared/*.json "${SHARED_BACKUP}/" 2>/dev/null || true
 restore_rendered() {
   local f
   while IFS= read -r -d '' f; do
@@ -52,7 +54,10 @@ restore_rendered() {
     cat "${RENDER_BACKUP}/${f}" > "${REPO_ROOT}/${f}"
   done < <(find "${RENDER_BACKUP}" -type f -print0)
   [[ ${#RENDER_NEW[@]} -gt 0 ]] && rm -f "${RENDER_NEW[@]}"
-  rm -rf "${RENDER_BACKUP}" "${EMPTY_TARGETS}"
+  # Shared dashboards are a directory mount: put back exactly the set there was.
+  rm -f "${REPO_ROOT}"/grafana/dashboards-shared/*.json
+  cp -p "${SHARED_BACKUP}"/*.json "${REPO_ROOT}/grafana/dashboards-shared/" 2>/dev/null || true
+  rm -rf "${RENDER_BACKUP}" "${SHARED_BACKUP}" "${EMPTY_TARGETS}"
 }
 trap restore_rendered EXIT
 while IFS= read -r -d '' t; do
@@ -183,7 +188,8 @@ if grep -qE '^\s*enable_alertmanager_v2:\s*true' loki/loki-config.yaml; then
 
 step "JSON parse (dashboards)"
 json_bad=0
-for f in grafana/dashboards/*.json; do
+for f in grafana/dashboards/*.json grafana/dashboards-shared/*.json; do
+  [[ -e "$f" ]] || continue
   jq -e . "$f" >/dev/null 2>&1 || { echo "    invalid: $f"; json_bad=1; }
 done
 [[ "${json_bad}" == 0 ]] && ok "$(ls grafana/dashboards/*.json | wc -l | tr -d ' ') dashboards" || fail "dashboard JSON"
