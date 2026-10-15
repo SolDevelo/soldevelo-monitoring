@@ -6,6 +6,13 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- *Service availability* dashboard (`sdm-stakeholder`): a plain summary of one
+  deployment for non-technical readers. It shows up/down per environment,
+  24h/7d/30d uptime (blank until monitoring covers the whole window), daily
+  uptime for 14 days, the worst alarm per environment over time and how long
+  each alarm fired.
+
 ## [0.12.2] — 2026-10-15
 
 ### Changed
