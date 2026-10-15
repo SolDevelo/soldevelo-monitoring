@@ -11,6 +11,7 @@ follows [semver](https://semver.org/).
   pass: Blackbox drops its last 2 CRITICAL (19 → 3 HIGH), Caddy 21 → 9 HIGH.
   Caddy 2.11.6 caps request headers at 16 KiB and aborts a body read or write
   that stalls for 1 minute; ingest pushes and Grafana stay well inside both.
+- Grafana 12.4.12 → 12.4.13 (security release): 3 CRITICAL / 15 HIGH → 0 / 2.
 
 ## [0.12.1] — 2026-10-06
 
