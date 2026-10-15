@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-10-15
+
 ### Changed
 - Blackbox v0.28.0 → v0.29.0 and Caddy 2.11.4 → 2.11.7, from a fresh InfraScan
   pass: Blackbox drops its last 2 CRITICAL (19 → 3 HIGH), Caddy 21 → 9 HIGH.
@@ -816,7 +818,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.10.0...v0.11.0
