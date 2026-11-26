@@ -6,6 +6,26 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Agents cap remote write at 5 shards (Alloy default 50) and drop samples older
+  than 1h on retry (`sample_age_limit`). When the stack slowed, every agent
+  scaled to 50 connections at once; on olmis-monitoring 15 agents opened
+  ~12k sockets and kept a 2 GB host thrashing for 15 hours, and after recovery
+  replayed hours of backlog Prometheus rejects as out of bounds anyway.
+- Prometheus runs with `mem_limit` = `memswap_limit` = `PROMETHEUS_MEM_LIMIT`
+  (default `1g`). Without a limit it set `GOMEMLIMIT` to 90% of the host
+  (3.6 GB of 3.8 GB) and pushed Loki and Grafana into swap.
+
+### Added
+- `MonitorMemoryLow` (meta, warning): under 15% memory available on the
+  monitoring host for 30m.
+
+### Upgrade notes
+- Set `PROMETHEUS_MEM_LIMIT` in `.env` to fit the head (`1g` ≈ 100k series,
+  `2g` ≈ 250k), then `up -d --force-recreate prometheus prometheus-meta`.
+- Agents pick up the queue limits only when redeployed; Docker hosts that
+  vendor `config.alloy` need `sync-from-package.sh` at this version.
+
 ## [0.14.0] — 2026-10-15
 
 ### Added
