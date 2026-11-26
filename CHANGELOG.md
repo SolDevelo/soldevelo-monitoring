@@ -6,6 +6,8 @@ follows [semver](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-11-26
+
 ### Fixed
 - Agents cap remote write at 5 shards (Alloy default 50) and drop samples older
   than 1h on retry (`sample_age_limit`). When the stack slowed, every agent
@@ -861,7 +863,8 @@ First release. Internal SolDevelo use; pre-public.
   public internet (or extend the Caddyfile with basic auth + sub-paths in a
   later release).
 
-[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/soldevelo/soldevelo-monitoring/compare/v0.12.1...v0.12.2
