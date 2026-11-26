@@ -29,6 +29,10 @@ services:
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
       - "--web.enable-remote-write-receiver"
+    # Without a limit Prometheus sets GOMEMLIMIT to 90% of the host and starves
+    # Loki/Grafana into swap; with one it is OOM-killed and restarts alone.
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-1g}
+    memswap_limit: ${PROMETHEUS_MEM_LIMIT:-1g}
     # Loopback only: the remote-write receiver has no auth, Caddy's bearer
     # gate on /ingest/* is the only public path. Same for every port below.
     ports:

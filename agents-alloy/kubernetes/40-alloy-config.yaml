@@ -152,6 +152,13 @@ data:
       endpoint {
         url          = sys.env("INGEST_METRICS_URL")
         bearer_token = sys.env("INGEST_TOKEN")
+        // Default max_shards is 50 per agent. When the stack slows, every agent
+        // scales up at once and the connection flood finishes it off.
+        // sample_age_limit drops backlog Prometheus would reject as out of bounds.
+        queue_config {
+          max_shards       = 5
+          sample_age_limit = "1h"
+        }
       }
       external_labels = {
         app         = sys.env("APP"),
